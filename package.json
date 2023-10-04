@@ -21,5 +21,8 @@
   "homepage": "https://github.com/NilsRamstoeck/esbuild-bitburner-plugin#readme",
   "devDependencies": {
     "esbuild": "^0.19.4"
+  },
+  "dependencies": {
+    "websocket": "^1.0.34"
   }
 }
