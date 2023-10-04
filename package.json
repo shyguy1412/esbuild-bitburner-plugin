@@ -1,0 +1,25 @@
+{
+  "name": "esbuild-bitburner-plugin",
+  "version": "1.0.0",
+  "description": "plugin to push files compiled by esbuild directly to bitburner using its remote API",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NilsRamstoeck/esbuild-bitburner-plugin.git"
+  },
+  "keywords": [
+    "esbuild"
+  ],
+  "author": "Nils Ramstöck",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/NilsRamstoeck/esbuild-bitburner-plugin/issues"
+  },
+  "homepage": "https://github.com/NilsRamstoeck/esbuild-bitburner-plugin#readme",
+  "devDependencies": {
+    "esbuild": "^0.19.4"
+  }
+}
