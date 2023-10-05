@@ -23,8 +23,8 @@ class RemoteApiServer extends WebSocketServer{
     this.config.httpServer[0].listen(port, callback);
 
     this.on('request', async (request) => {
-      if(this.connection && this.connection.readyState == 2){
-        request.reject(400, "Only one client can connect at a time")
+      if(this.connection && this.connection.connected){
+        request.reject(400, "Only one client can connect at a time");
         return;
       }
       
@@ -69,7 +69,6 @@ class RemoteApiServer extends WebSocketServer{
   }
 
   pushFile({filename, content, server}){
-    console.log({filename, content, server});
     return this.write({
       method: "pushFile",
       params: {
@@ -120,7 +119,7 @@ class RemoteApiServer extends WebSocketServer{
 
   calculateRAM({filename, server}){
     return this.write({
-      method: "calculateRAM",
+      method: "calculateRam",
       params: {
         filename,
         server,

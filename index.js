@@ -1,110 +1,133 @@
-const http = require('http');
-const WebSocketServer = require('websocket').server;
-
+const RemoteApiServer = require('./RemoteApiServer');
+const fs = require('fs/promises');
 
 /** @type {(opts:import('./index').BitburnerPluginOptions) => import('esbuild').Plugin} */
 const BitburnerPlugin = (opts) => ({
   name: "BitburnerPlugin",
   setup(pluginBuild){
     opts ??= {};
-    pluginBuild.initialOptions.metafile = true;
+    opts.servers ??= [];
+
+    const { outdir, outbase } = pluginBuild.initialOptions;
     
     if(!opts.port)
       throw new Error('No port provided');
 
-    //if(pluginBuild.initialOptions.write)
-    //  throw new Error("BitburnerPlugin doesn't support 'write' mode");
+    if(pluginBuild.initialOptions.write)
+      throw new Error("BitburnerPlugin doesn't support 'write' mode");
 
-    const RemoteAPI = (() => {
-      const remote = {
-        write: function(obj){
-          return new Promise((resolve) => {
-            const id = Date.now();
-            const message = JSON.stringify({
-              "jsonrpc": "2.0",
-                id,
-                ...obj 
-            });
-            
-            const handler = (e) => {
-              const response = JSON.parse(e.utf8Data);
-              if(response.id == id){
-                this.connection.removeListener('message', handler);
-                resolve(response);
-              }
-            }
+    if(!outdir)
+      throw new Error("BitburnerPlugin requires the outdir option to be set");
 
-            this.connection.addListener('message', handler);
-            this.connection.send(message);
-          });
-        }
-      }
+    const remoteAPI = new RemoteApiServer(opts.port);
 
-      const server = http.createServer((request, response) => {
-        response.writeHead(404);
-        response.end();
-      });
-    
-      server.listen(opts.port, () => {
-        console.log('✅ RemoteAPI Server listening on port ' + opts.port);
-      });
+    remoteAPI.listen(opts.port, () => {
+      console.log('✅ RemoteAPI Server listening on port ' + opts.port);
+    })
 
-      const wsServer = new WebSocketServer({
-        httpServer: server,
-        autoAcceptConnections: false,
-        maxReceivedMessageSize: 1.49e+7,
-        maxReceivedFrameSize: 1.49e+7
-      });
+    let queued = false;
+    let startTime;
 
-    
-      wsServer.on('request', async function(request) {
-        var connection = request.accept(null, request.origin);
-        remote.connection = connection;
-        connection.on('close', (e) => {
-          console.log(e);
-        });
-        connection.on('message', (e) => {
-          console.log(e);
-        });
-      });
+    pluginBuild.onStart(() => {
+      startTime = Date.now();
+    });
 
-      return remote;
-    })();
+    //Listener for error message and information
+    pluginBuild.onEnd(result => {
+      if(!result.errors.length && !result.warnings.length) return;
+      const highlightText = (text, start, end) => {
+        const before = text.substring(0, start);
+        const toHighlight = text.substring(start, end);
+        const highlighted = `\x1b[92m${toHighlight}\x1b[0m`;
+        const after = text.substring(end);
+        return before + highlighted + after + `\n` +
+          //squiggles
+          before.replaceAll(/./g, ' ') +
+          `\x1b[92m${toHighlight.replaceAll(/./g, '~')}\x1b[0m`
+        ;
+      };
+
+      const formatMessage = (m, error = true) => {
+        const message =
+          `${error ? '❌' : '⚠️'} \x1b[41m\x1b[97m[${error?'ERROR':'WARNING'}]\x1b[0m ` +
+          `${m.text}\n\n` +
+          `    ${m.location?.file ?? 'source'}:${m.location?.line ?? 'unknown'}:${m.location?.column ?? 'unknown'}:\n` +
+          `      ${m.location?.lineText ?
+            highlightText(
+              m.location.lineText,
+              m.location.column ?? 0,
+              (m.location.column ?? 0) + (m.location.length ?? 0)).replace('\n', '\n      ')
+            : ''}`;
+
+          return message;
+      };
+
+
+      if(result.errors.length)
+        result.errors.forEach(e => console.log(formatMessage(e)));
+      if(result.warnings.length)
+        result.warnings.forEach(e => console.log(formatMessage(e)));
+
+
+      console.log(`${result.errors.length ? '❌' : '✅'} ${result.errors.length} ${result.errors.length == 1 ? 'error' : 'errors'}`);
+      console.log(`${result.warnings.length ? '⚠️' : '✅'} ${result.warnings.length} ${result.warnings.length == 1 ? 'warning' : 'warnings'}`);
+
+      // console.log(result.errors[0]);
+
+    });
 
     pluginBuild.onEnd(async (result) => {
-      console.log(result.metafile);
+      if(result.errors.length != 0)return;
+      if(queued)return;
+      let endTime = Date.now();
+      if(!remoteAPI.connection || !remoteAPI.connection.connected){
+        queued = true;
+        console.log('Waiting for client to connect')
+        await new Promise(resolve => {
+          remoteAPI.on('client-connected', () => resolve());
+        });
+      }
+
+      const files = (await fs.readdir(outdir, {recursive:true, withFileTypes: true}))
+        .filter(file => file.isFile())
+        .map(file => {file.path = file.path.replace('\\', '/').replace(/^.*?\//, '');return file}) // rebase path
+        .map(file => ({
+            server: file.path.split('/')[0],
+            filename: `${file.path}/${file.name}`.replace(/^.*?\//, ''),
+            path:`${outdir}/${file.path}/${file.name}` 
+        }));
+
+      const promises = files
+        .map(async ({filename, server, path}) => remoteAPI.pushFile({
+            filename,
+            server,
+            content: (await fs.readFile(path)).toString('utf8')
+        }));
+
+      await Promise.all(promises);
+
+      const formatOutputFiles = (files) => {
+        return files.map(file => `  \x1b[33m•\x1b[0m ${file.server}://${file.filename} \x1b[32mRAM: ${file.cost}GB\x1b[0m`);
+      };
+
+
+      const filesWithRAM = await Promise.all(files.map(async ({filename, server}) => ({
+        filename, 
+        server,
+        cost: (await remoteAPI.calculateRAM({filename, server})).result
+      })));
+
+      queued = false;
+      
+      if(pluginBuild.initialOptions.logLevel != 'info') return;
+
+      console.log();
+      console.log(formatOutputFiles(filesWithRAM).join('\n'));
+      console.log();
+      console.log(`⚡ \x1b[32mDone in \x1b[33m${endTime - startTime}ms\x1b[0m`);
+      console.log();
+
       return;
-      const files = Object.values(result.metafile.outputs)
-        .map(([path, value]) => {
-          return {
-            name: path,
-            server: 'home',
-            content: value
-          }
-      });
-      async function pushFiles(files){
-        return Promise.all(files.map(async file => RemoteAPI.write({
-            "method": "pushFile",
-            "params": {
-              filename: file.name,
-              content: file.content,
-              server: file.server,
-            }
-        })));
-        for(const file of files){
-          await RemoteAPI.write({
-          });
-        }
-      }
-
-      async function calculateRAM(files){
-        return await Promise.all(files.map(async file => ({
-          name: file.name,
-          server: file.server,
-          cost: await RemoteAPI.write()
-        })));
-      }
-
     })
   }
 });

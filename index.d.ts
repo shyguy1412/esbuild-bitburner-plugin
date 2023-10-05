@@ -1,5 +1,5 @@
 export type BitburnerPluginOptions = {
-  servers?: string[] | 'auto',
+  servers?: string[],
   port?: number,
 }
 const BitburnerPlugin: (opts:BitburnerPluginOptions) => import('esbuild').Plugin
