@@ -4,29 +4,27 @@ const fs = require('fs/promises');
 /** @type {(opts:import('./index').BitburnerPluginOptions) => import('esbuild').Plugin} */
 const BitburnerPlugin = (opts) => ({
   name: "BitburnerPlugin",
-  setup(pluginBuild){
+  setup(pluginBuild) {
     opts ??= {};
-    opts.servers ??= [];
 
-    const { outdir, outbase } = pluginBuild.initialOptions;
-    
-    if(!opts.port)
+    const { outdir } = pluginBuild.initialOptions;
+
+    if (!opts.port)
       throw new Error('No port provided');
 
-    if(pluginBuild.initialOptions.write)
+    if (pluginBuild.initialOptions.write)
       throw new Error("BitburnerPlugin doesn't support 'write' mode");
 
-    if(!outdir)
+    if (!outdir)
       throw new Error("BitburnerPlugin requires the outdir option to be set");
 
-    const remoteAPI = new RemoteApiServer(opts.port);
-
+    const remoteAPI = new RemoteApiServer();
     remoteAPI.listen(opts.port, () => {
       console.log('✅ RemoteAPI Server listening on port ' + opts.port);
-    })
+    });
 
     remoteAPI.on('client-connected', async () => {
-      if(!opts.types) return;
+      if (!opts.types) return;
       const types = await remoteAPI.getDefinitionFile();
       await fs.writeFile(opts.types, types.result);
     });
@@ -34,21 +32,32 @@ const BitburnerPlugin = (opts) => ({
     let queued = false;
     let startTime;
 
-    pluginBuild.onStart(() => {
+    pluginBuild.onStart(async () => {
       startTime = Date.now();
+      await fs.rm(outdir, { recursive: true });
     });
 
-    pluginBuild.onResolve({filter: /^react(-dom)?$/}, (opts) => {
-      console.log(opts);
+    pluginBuild.onResolve({ filter: /^react(-dom)?$/ }, (opts) => {
       return {
         namespace: 'react',
         path: opts.path,
-      }
+      };
+    });
+
+    pluginBuild.onLoad({ filter: /^react(-dom)?$/, namespace: 'react' }, (opts) => {
+      if (opts.path == 'react')
+        return {
+          contents: 'module.exports = window.React'
+        };
+      else if (opts.path == 'react-dom')
+        return {
+          contents: 'module.exports = window.ReactDOM'
+        };
     });
 
     //Listener for error message and information
     pluginBuild.onEnd(result => {
-      if(!result.errors.length && !result.warnings.length) return;
+      if (!result.errors.length && !result.warnings.length) return;
       const highlightText = (text, start, end) => {
         const before = text.substring(0, start);
         const toHighlight = text.substring(start, end);
@@ -58,12 +67,12 @@ const BitburnerPlugin = (opts) => ({
           //squiggles
           before.replaceAll(/./g, ' ') +
           `\x1b[92m${toHighlight.replaceAll(/./g, '~')}\x1b[0m`
-        ;
+          ;
       };
 
       const formatMessage = (m, error = true) => {
         const message =
-          `${error ? '❌' : '⚠️'} \x1b[41m\x1b[97m[${error?'ERROR':'WARNING'}]\x1b[0m ` +
+          `${error ? '❌' : '⚠️'} \x1b[41m\x1b[97m[${error ? 'ERROR' : 'WARNING'}]\x1b[0m ` +
           `${m.text}\n\n` +
           `    ${m.location?.file ?? 'source'}:${m.location?.line ?? 'unknown'}:${m.location?.column ?? 'unknown'}:\n` +
           `      ${m.location?.lineText ?
@@ -73,13 +82,13 @@ const BitburnerPlugin = (opts) => ({
               (m.location.column ?? 0) + (m.location.length ?? 0)).replace('\n', '\n      ')
             : ''}`;
 
-          return message;
+        return message;
       };
 
 
-      if(result.errors.length)
+      if (result.errors.length)
         result.errors.forEach(e => console.log(formatMessage(e)));
-      if(result.warnings.length)
+      if (result.warnings.length)
         result.warnings.forEach(e => console.log(formatMessage(e)));
 
 
@@ -91,31 +100,34 @@ const BitburnerPlugin = (opts) => ({
     });
 
     pluginBuild.onEnd(async (result) => {
-      if(result.errors.length != 0)return;
-      if(queued)return;
+      if (result.errors.length != 0) return;
+      if (queued) return;
       let endTime = Date.now();
-      if(!remoteAPI.connection || !remoteAPI.connection.connected){
+      if (!remoteAPI.connection || !remoteAPI.connection.connected) {
         queued = true;
-        console.log('Waiting for client to connect')
+        console.log('Waiting for client to connect');
         await new Promise(resolve => {
-          remoteAPI.on('client-connected', () => resolve());
+          remoteAPI.on('client-connected', () => {
+            console.log('Client connected');
+            resolve();
+          });
         });
       }
 
-      const files = (await fs.readdir(outdir, {recursive:true, withFileTypes: true}))
+      const files = (await fs.readdir(outdir, { recursive: true, withFileTypes: true }))
         .filter(file => file.isFile())
-        .map(file => {file.path = file.path.replace('\\', '/').replace(/^.*?\//, '');return file}) // rebase path
+        .map(file => { file.path = file.path.replace('\\', '/').replace(/^.*?\//, ''); return file; }) // rebase path
         .map(file => ({
-            server: file.path.split('/')[0],
-            filename: `${file.path}/${file.name}`.replace(/^.*?\//, ''),
-            path:`${outdir}/${file.path}/${file.name}` 
+          server: file.path.split('/')[0],
+          filename: `${file.path}/${file.name}`.replace(/^.*?\//, ''),
+          path: `${outdir}/${file.path}/${file.name}`
         }));
 
       const promises = files
-        .map(async ({filename, server, path}) => remoteAPI.pushFile({
-            filename,
-            server,
-            content: (await fs.readFile(path)).toString('utf8')
+        .map(async ({ filename, server, path }) => remoteAPI.pushFile({
+          filename,
+          server,
+          content: (await fs.readFile(path)).toString('utf8')
         }));
 
       await Promise.all(promises);
@@ -124,16 +136,13 @@ const BitburnerPlugin = (opts) => ({
         return files.map(file => `  \x1b[33m•\x1b[0m ${file.server}://${file.filename} \x1b[32mRAM: ${file.cost}GB\x1b[0m`);
       };
 
-
-      const filesWithRAM = await Promise.all(files.map(async ({filename, server}) => ({
-        filename, 
+      const filesWithRAM = await Promise.all(files.map(async ({ filename, server }) => ({
+        filename,
         server,
-        cost: (await remoteAPI.calculateRAM({filename, server})).result
+        cost: (await remoteAPI.calculateRAM({ filename, server })).result
       })));
 
       queued = false;
-      
-      if(pluginBuild.initialOptions.logLevel != 'info') return;
 
       console.log();
       console.log(formatOutputFiles(filesWithRAM).join('\n'));
@@ -142,7 +151,7 @@ const BitburnerPlugin = (opts) => ({
       console.log();
 
       return;
-    })
+    });
   }
 });
 
@@ -152,4 +161,4 @@ const BitburnerPlugin = (opts) => ({
 module.exports = {
   default: BitburnerPlugin,
   BitburnerPlugin
-}
+};

@@ -1,6 +1,6 @@
 export type BitburnerPluginOptions = {
-  servers?: string[],
-  port?: number,
+  port: number,
+  types?: string
 }
 const BitburnerPlugin: (opts:BitburnerPluginOptions) => import('esbuild').Plugin
 export default BitburnerPlugin;
