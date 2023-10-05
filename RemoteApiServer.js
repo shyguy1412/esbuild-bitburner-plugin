@@ -132,27 +132,3 @@ class RemoteApiServer extends WebSocketServer{
 
 module.exports = RemoteApiServer;
 
-      async function pushFiles(files){
-        return Promise.all(files.map(async file => RemoteAPI.write({
-            "method": "pushFile",
-            "params": {
-              filename: file.name,
-              content: file.content,
-              server: file.server,
-            }
-        })));
-        for(const file of files){
-          await RemoteAPI.write({
-          });
-        }
-      }
-
-      async function calculateRAM(files){
-        return await Promise.all(files.map(async file => ({
-          name: file.name,
-          server: file.server,
-          cost: await RemoteAPI.write()
-        })));
-      }
-
-
