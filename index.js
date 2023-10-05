@@ -25,11 +25,25 @@ const BitburnerPlugin = (opts) => ({
       console.log('✅ RemoteAPI Server listening on port ' + opts.port);
     })
 
+    remoteAPI.on('client-connected', async () => {
+      if(!opts.types) return;
+      const types = await remoteAPI.getDefinitionFile();
+      await fs.writeFile(opts.types, types.result);
+    });
+
     let queued = false;
     let startTime;
 
     pluginBuild.onStart(() => {
       startTime = Date.now();
+    });
+
+    pluginBuild.onResolve({filter: /^react(-dom)?$/}, (opts) => {
+      console.log(opts);
+      return {
+        namespace: 'react',
+        path: opts.path,
+      }
     });
 
     //Listener for error message and information
