@@ -1,5 +1,6 @@
 const RemoteApiServer = require('./RemoteApiServer');
 const fs = require('fs/promises');
+const { existsSync } = require('fs');
 
 /** @type {(opts:import('./index').BitburnerPluginOptions) => import('esbuild').Plugin} */
 const BitburnerPlugin = (opts) => ({
@@ -34,7 +35,8 @@ const BitburnerPlugin = (opts) => ({
 
     pluginBuild.onStart(async () => {
       startTime = Date.now();
-      await fs.rm(outdir, { recursive: true });
+      if (existsSync(outdir))
+        await fs.rm(outdir, { recursive: true });
     });
 
     pluginBuild.onResolve({ filter: /^react(-dom)?$/ }, (opts) => {
