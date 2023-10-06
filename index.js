@@ -55,50 +55,6 @@ const BitburnerPlugin = (opts) => ({
         };
     });
 
-    //Listener for error message and information
-    pluginBuild.onEnd(result => {
-      if (!result.errors.length && !result.warnings.length) return;
-      const highlightText = (text, start, end) => {
-        const before = text.substring(0, start);
-        const toHighlight = text.substring(start, end);
-        const highlighted = `\x1b[92m${toHighlight}\x1b[0m`;
-        const after = text.substring(end);
-        return before + highlighted + after + `\n` +
-          //squiggles
-          before.replaceAll(/./g, ' ') +
-          `\x1b[92m${toHighlight.replaceAll(/./g, '~')}\x1b[0m`
-          ;
-      };
-
-      const formatMessage = (m, error = true) => {
-        const message =
-          `${error ? '❌' : '⚠️'} \x1b[41m\x1b[97m[${error ? 'ERROR' : 'WARNING'}]\x1b[0m ` +
-          `${m.text}\n\n` +
-          `    ${m.location?.file ?? 'source'}:${m.location?.line ?? 'unknown'}:${m.location?.column ?? 'unknown'}:\n` +
-          `      ${m.location?.lineText ?
-            highlightText(
-              m.location.lineText,
-              m.location.column ?? 0,
-              (m.location.column ?? 0) + (m.location.length ?? 0)).replace('\n', '\n      ')
-            : ''}`;
-
-        return message;
-      };
-
-
-      if (result.errors.length)
-        result.errors.forEach(e => console.log(formatMessage(e)));
-      if (result.warnings.length)
-        result.warnings.forEach(e => console.log(formatMessage(e)));
-
-
-      console.log(`${result.errors.length ? '❌' : '✅'} ${result.errors.length} ${result.errors.length == 1 ? 'error' : 'errors'}`);
-      console.log(`${result.warnings.length ? '⚠️' : '✅'} ${result.warnings.length} ${result.warnings.length == 1 ? 'warning' : 'warnings'}`);
-
-      // console.log(result.errors[0]);
-
-    });
-
     pluginBuild.onEnd(async (result) => {
       if (result.errors.length != 0) return;
       if (queued) return;
