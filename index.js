@@ -72,6 +72,11 @@ const BitburnerPlugin = (opts) => ({
         });
       }
 
+      if (!existsSync(outdir)) {
+        console.log('No files have been output!');
+        return;
+      }
+
       const files = (await fs.readdir(outdir, { recursive: true, withFileTypes: true }))
         .filter(file => file.isFile())
         .map(file => { file.path = file.path.replace('\\', '/').replace(/^.*?\//, ''); return file; }) // rebase path
