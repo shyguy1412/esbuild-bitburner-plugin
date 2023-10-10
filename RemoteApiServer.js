@@ -1,6 +1,7 @@
 const http = require('http');
 const WebSocketServer = require('websocket').server;
 
+
 class RemoteApiServer extends WebSocketServer {
 
   #counter;
@@ -47,10 +48,24 @@ class RemoteApiServer extends WebSocketServer {
           this.queue.delete(response.id);
         }
       });
-
+      
       this.emit('client-connected');
 
     });
+  }
+
+  mirror(path, ...servers){
+    return {
+      dispose(){
+
+      },
+      syncWithRemote(){
+
+      },
+      watch(){
+
+      }
+    }
   }
 
   write(obj) {

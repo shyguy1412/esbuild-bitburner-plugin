@@ -30,6 +30,16 @@ const BitburnerPlugin = (opts) => ({
       await fs.writeFile(opts.types, types.result);
     });
 
+    remoteAPI.on('client-connected', () => {
+      if(!opts.mirror) return;
+
+      for(const path in opts.mirror){
+        const servers = opts.mirror[path];
+        const mirror = remoteAPI.mirror(path, ...servers);
+        remoteAPI.addListener('close', () => mirror.dispose());
+      }
+    });
+
     let queued = false;
     let startTime;
 
