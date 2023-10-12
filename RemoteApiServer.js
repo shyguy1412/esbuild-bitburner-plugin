@@ -1,5 +1,9 @@
+const {log} = require('console');
 const http = require('http');
 const WebSocketServer = require('websocket').server;
+const fs = require('fs/promises');
+const path = require('path');
+const pathExists = require('fs').existsSync;
 
 
 class RemoteApiServer extends WebSocketServer {
@@ -54,16 +58,43 @@ class RemoteApiServer extends WebSocketServer {
     });
   }
 
-  mirror(path, ...servers){
+  mirror(targetPath, ...servers){
+    let syncing = false;
+
+    const getAllServerFiles = async () => {
+      const files = [];
+      for (const server of servers){
+        const serverFiles = (await this.getAllFiles(server)).result;
+        if(!serverFiles)continue;
+        files.push(...serverFiles.map(file => ({
+          filename: file.filename,
+          server,
+          content: file.content
+        })));
+      }
+      return files;
+    }
+
     return {
       dispose(){
 
       },
-      syncWithRemote(){
+      async syncWithRemote(){
+        syncing = true;
+        console.log('getting files')
+        const files = await getAllServerFiles();
+        for(const file of files){
+          const filePath = path.join(targetPath, file.server, file.filename);
+          
+          if(!pathExists(path.dirname(filePath)))
+            await fs.mkdir(path.dirname(filePath), {recursive: true});
 
+          await fs.writeFile(filePath, file.content);
+        }
+        syncing = false;
       },
       watch(){
-
+        
       }
     }
   }
@@ -116,7 +147,7 @@ class RemoteApiServer extends WebSocketServer {
     });
   }
 
-  getFileNames({ server }) {
+  getFileNames(server) {
     return this.write({
       method: "getFileNames",
       params: {
@@ -125,7 +156,7 @@ class RemoteApiServer extends WebSocketServer {
     });
   }
 
-  getAllFiles({ server }) {
+  getAllFiles(server) {
     return this.write({
       method: "getAllFiles",
       params: {

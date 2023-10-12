@@ -36,6 +36,7 @@ const BitburnerPlugin = (opts) => ({
       for(const path in opts.mirror){
         const servers = opts.mirror[path];
         const mirror = remoteAPI.mirror(path, ...servers);
+        mirror.syncWithRemote();
         remoteAPI.addListener('close', () => mirror.dispose());
       }
     });
