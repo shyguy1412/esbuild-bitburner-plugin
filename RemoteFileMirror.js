@@ -2,6 +2,8 @@ const path = require('path');
 const fs = require('fs/promises');
 const {log} = require('console');
 const pathExists = require('fs').existsSync;
+const watchDirectory = require('chokidar').watch;
+
 
 class RemoteFileMirror{
   static remoteApi;
@@ -11,6 +13,7 @@ class RemoteFileMirror{
   fileCache = {};
   syncing = false;
   remotePollTimeout;
+  fileWatcher;
 
   constructor(targetPath, servers){
     if(!RemoteFileMirror.remoteApi){
@@ -143,11 +146,48 @@ class RemoteFileMirror{
 
     pollRemote();
 
+    this.fileWatcher = watchDirectory(this.targetPath, {ignoreInitial: true});
+
+    this.fileWatcher.on('all', async (e, filePath) => {
+      const deleted = !pathExists(filePath);
+      if(!deleted && !(await fs.stat(filePath)).isFile())
+        return;
+
+
+      const remotePath = filePath.replace(this.targetPath, '').replace(/\/?.*?\/?/, '');
+      const remoteServer = filePath.replace(this.targetPath, '').replace(/\/?(.*?)\/.*/, '$1');
+      
+      console.log(`Change detected, syncing files with [${remoteServer}], ${deleted}`);
+      if(deleted){
+        await RemoteFileMirror.remoteApi.deleteFile({
+          filename: remotePath,
+          server: remoteServer
+        });
+
+        console.log(`Delete file ${remoteServer}://${remotePath}`)
+      
+      } else {
+
+        const content = await fs.readFile(filePath);
+        
+        await RemoteFileMirror.remoteApi.pushFile({
+          filename: remotePath,
+          server: remoteServer,
+          content
+        });
+
+        console.log(`Wrote file ${filePath} to ${remoteServer}://${remotePath}`);
+      }
+    });
+
   }
 
   dispose(){
     if(this.remotePollTimeout)
       clearTimeout(this.remotePollTimeout);
+    if(this.fileWatcher)
+      this.fileWatcher.close();
+
   }
 
 }

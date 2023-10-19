@@ -23,6 +23,7 @@
     "esbuild": "^0.19.4"
   },
   "dependencies": {
+    "chokidar": "^3.5.3",
     "websocket": "^1.0.34"
   }
 }
