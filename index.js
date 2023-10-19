@@ -50,6 +50,10 @@ const BitburnerPlugin = (opts) => ({
       for(const mirror of mirrors){
         await mirror.syncWithRemote();
       }
+
+      for(const mirror of mirrors){
+        await mirror.watch();
+      }
     });
 
     let queued = false;
