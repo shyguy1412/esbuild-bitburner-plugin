@@ -31,11 +31,16 @@ const BitburnerPlugin = (opts) => ({
     });
 
     remoteAPI.on('client-connected', async () => {
-      if(!opts.mirror) return;
-      
+      if (!opts.mirror) return;
+
       const mirrors = [];
 
-      for(const path in opts.mirror){
+      console.log();
+
+      for (const path in opts.mirror) {
+        if (!existsSync(path))
+          await fs.mkdir(path, { recursive: true });
+
         const servers = opts.mirror[path];
         const mirror = remoteAPI.mirror(path, ...servers);
         remoteAPI.addListener('close', () => mirror.dispose());
@@ -43,16 +48,20 @@ const BitburnerPlugin = (opts) => ({
         mirrors.push(mirror);
       }
 
-      for(const mirror of mirrors){
+      console.log();
+
+      for (const mirror of mirrors) {
         await mirror.initFileCache();
       }
-      
-      for(const mirror of mirrors){
+
+      console.log();
+
+      for (const mirror of mirrors) {
         await mirror.syncWithRemote();
       }
 
-      for(const mirror of mirrors){
-        await mirror.watch();
+      for (const mirror of mirrors) {
+        mirror.watch();
       }
     });
 
@@ -86,7 +95,7 @@ const BitburnerPlugin = (opts) => ({
     pluginBuild.onEnd(async (result) => {
       if (result.errors.length != 0) return;
       if (queued) return;
-       if (!existsSync(outdir)) {
+      if (!existsSync(outdir)) {
         console.log('No files have been output!');
         return;
       }
