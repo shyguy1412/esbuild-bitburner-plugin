@@ -57,7 +57,7 @@ class RemoteFileMirror {
     }
 
     for (const file in this.fileCache) {
-      if (!files[file]) {
+      if (files[file] == undefined) {
         diff.rem[file] = this.fileCache[file];
       }
     }
@@ -98,17 +98,19 @@ class RemoteFileMirror {
     const diff = { ...filesToWrite, ...filesToRemove }; //For output formatting only
 
     if (Object.keys(diff).length != 0)
-      console.log(`Change detected, syncing files with [${Object
+      console.log(`Remote change detected, syncing files with [${Object
         .keys(diff)
         .map(k => k.split('://', 2)[0])
         .filter((el, i, arr) => i == arr.indexOf(el))
         .join(', ')}]`
       );
 
-    console.log({
-      filesToWrite,
-      filesToRemove
-    }, Object.keys(diff).length);
+    // if (Object.keys(filesToRemove).length > 0 || Object.keys(filesToWrite).length > 0) {
+    //   console.log({
+    //     filesToWrite,
+    //     filesToRemove,
+    //   }, Object.keys(diff).length);
+    // }
 
     for (const file in filesToWrite) {
       const content = filesToWrite[file];
@@ -122,16 +124,17 @@ class RemoteFileMirror {
     }
 
     for (const file in filesToRemove) {
+      delete this.fileCache[file];
+
       const filePath = path.join(this.targetPath, file.replace(/:\/\//, '/'));
 
       if (!pathExists(filePath))
         continue;
 
       await fs.rm(filePath);
-      delete this.fileCache[file];
 
       if ((await fs.readdir(path.dirname(filePath))).length == 0) {
-        await fs.rm(path.dirname(filePath));
+        await fs.rmdir(path.dirname(filePath));
       }
 
       console.log(`Deleted file ${file}`);
@@ -164,7 +167,6 @@ class RemoteFileMirror {
       if ((!deleted && !(await fs.stat(filePath)).isFile()) || e == 'add')
         return;
 
-
       filePath = filePath.replaceAll('\\', '/');
 
       const remoteServer = filePath.replace(this.targetPath, '').replace(/\/?(.*?)\/.*/, '$1');
@@ -176,9 +178,8 @@ class RemoteFileMirror {
       });
 
       if (deleted && file.error) return; //File is already deleted
-      if (!deleted && file.content == (await fs.readFile(filePath)).toString('utf8'))
-
-        console.log(`Change detected ${e}, syncing files with [${remoteServer}]`);
+      // if (!deleted && file.content == (await fs.readFile(filePath)).toString('utf8'))
+      console.log(`Local change detected, syncing files with [${remoteServer}]`);
 
       if (deleted) {
         await RemoteFileMirror.remoteApi.deleteFile({
@@ -186,11 +187,15 @@ class RemoteFileMirror {
           server: remoteServer
         });
 
+        if ((await fs.readdir(path.dirname(filePath))).length == 0) {
+          await fs.rmdir(path.dirname(filePath));
+        }
+
         console.log(`Deleted file ${remoteServer}://${remotePath}`);
 
       } else {
 
-        const content = await fs.readFile(filePath);
+        const content = (await fs.readFile(filePath)).toString('utf8');
 
         await RemoteFileMirror.remoteApi.pushFile({
           filename: remotePath,
@@ -198,6 +203,7 @@ class RemoteFileMirror {
           content
         });
 
+        this.writeToFilesCache({ [`${remoteServer}://${remotePath}`]: content });
         console.log(`Wrote file ${filePath} to ${remoteServer}://${remotePath}`);
       }
 
@@ -215,29 +221,6 @@ class RemoteFileMirror {
   }
 
 }
-
-/*
-    let syncing = false;
-
-    
-    const watch = () => {
-
-    };
-
-    const dispose = () => {
-
-    }
-
-    const fileCache = {};
-
-
-
-    return {
-      ,
-      watch,
-      dispose
-    }
-  }*/
 
 module.exports = RemoteFileMirror;
 

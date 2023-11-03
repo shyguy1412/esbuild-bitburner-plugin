@@ -1,13 +1,6 @@
-const {log} = require('console');
 const http = require('http');
 const WebSocketServer = require('websocket').server;
-const fs = require('fs/promises');
-const path = require('path');
-const {write} = require('fs');
-const pathExists = require('fs').existsSync;
-
 const RemoteFileMirror = require('./RemoteFileMirror');
-
 
 class RemoteApiServer extends WebSocketServer {
 
@@ -56,13 +49,13 @@ class RemoteApiServer extends WebSocketServer {
           this.queue.delete(response.id);
         }
       });
-      
+
       this.emit('client-connected');
 
     });
   }
 
-  mirror(targetPath, ...servers){
+  mirror(targetPath, ...servers) {
     return new RemoteFileMirror(targetPath, servers);
   }
 
