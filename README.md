@@ -57,8 +57,41 @@ dist
 
 then `homeScript.js` will be uploaded to `home` and `otherScript.js` to `otherServer`.
 
-This Plugin has 2 options:
+## Options
 
-port: The port that the RemoteAPI Server will listen on. This is the same port that you need to enter inside Bitburner to connect to the Plugin. default is `12525`.
+### Port
 
-types: This is the path that the Netscript Definitions file will be placed at. This is optional.
+The port that the RemoteAPI Server will listen on. This is the same port that you need to enter inside Bitburner to connect to the Plugin. default is `12525`.
+
+### Types
+
+This is the path that the Netscript Definitions file will be placed at. This is optional.
+
+### Mirror
+
+This enables file mirroring. You can use this to map remote servers to a local path like this:
+
+```js
+const createContext = async () => await context({
+  entryPoints: await glob('./servers/**/*.{js,jsx,ts,tsx}'),
+  outbase: "./servers",
+  outdir: "./dist",
+  plugins: [BitburnerPlugin({
+    port: 12525,
+    types: 'NetscriptDefinitions.d.ts',
+    mirror: {
+      'local/path': ['home', 'and/or other servers']
+    }
+  })],
+  bundle: true,
+  format: 'esm',
+  platform: 'browser',
+  logLevel: 'info'
+});
+
+let ctx = await createContext();
+ctx.watch();
+```
+
+Any file on home would then be placed in `local/path/home` and other servers in their respective directories.
+Any changes made locally will then be synced into the game and any changes made in the game will also be synced locally.
