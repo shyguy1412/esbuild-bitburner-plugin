@@ -30,6 +30,41 @@ const BitburnerPlugin = (opts) => ({
       await fs.writeFile(opts.types, types.result);
     });
 
+    remoteAPI.on('client-connected', async () => {
+      if (!opts.mirror) return;
+
+      const mirrors = [];
+
+      console.log();
+
+      for (const path in opts.mirror) {
+        if (!existsSync(path))
+          await fs.mkdir(path, { recursive: true });
+
+        const servers = opts.mirror[path];
+        const mirror = remoteAPI.mirror(path, ...servers);
+        remoteAPI.addListener('close', () => mirror.dispose());
+
+        mirrors.push(mirror);
+      }
+
+      console.log();
+
+      for (const mirror of mirrors) {
+        await mirror.initFileCache();
+      }
+
+      console.log();
+
+      for (const mirror of mirrors) {
+        await mirror.syncWithRemote();
+      }
+
+      for (const mirror of mirrors) {
+        mirror.watch();
+      }
+    });
+
     let queued = false;
     let startTime;
 
@@ -60,6 +95,11 @@ const BitburnerPlugin = (opts) => ({
     pluginBuild.onEnd(async (result) => {
       if (result.errors.length != 0) return;
       if (queued) return;
+      if (!existsSync(outdir)) {
+        console.log('No files have been output!');
+        return;
+      }
+
       let endTime = Date.now();
       if (!remoteAPI.connection || !remoteAPI.connection.connected) {
         queued = true;
@@ -72,10 +112,7 @@ const BitburnerPlugin = (opts) => ({
         });
       }
 
-      if (!existsSync(outdir)) {
-        console.log('No files have been output!');
-        return;
-      }
+
 
       const files = (await fs.readdir(outdir, { recursive: true, withFileTypes: true }))
         .filter(file => file.isFile())
@@ -117,6 +154,7 @@ const BitburnerPlugin = (opts) => ({
 
       return;
     });
+
   }
 });
 

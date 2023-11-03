@@ -1,5 +1,6 @@
 const http = require('http');
 const WebSocketServer = require('websocket').server;
+const RemoteFileMirror = require('./RemoteFileMirror');
 
 class RemoteApiServer extends WebSocketServer {
 
@@ -18,6 +19,7 @@ class RemoteApiServer extends WebSocketServer {
 
     this.queue = new Map();
     this.#counter = 1;
+    RemoteFileMirror.remoteApi = this;
   }
 
   getId() {
@@ -51,6 +53,10 @@ class RemoteApiServer extends WebSocketServer {
       this.emit('client-connected');
 
     });
+  }
+
+  mirror(targetPath, ...servers) {
+    return new RemoteFileMirror(targetPath, servers);
   }
 
   write(obj) {
@@ -101,7 +107,7 @@ class RemoteApiServer extends WebSocketServer {
     });
   }
 
-  getFileNames({ server }) {
+  getFileNames(server) {
     return this.write({
       method: "getFileNames",
       params: {
@@ -110,7 +116,7 @@ class RemoteApiServer extends WebSocketServer {
     });
   }
 
-  getAllFiles({ server }) {
+  getAllFiles(server) {
     return this.write({
       method: "getAllFiles",
       params: {
