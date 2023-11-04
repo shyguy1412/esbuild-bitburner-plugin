@@ -10,9 +10,14 @@ Here is an example using [glob](https://www.npmjs.com/package/glob) to capture a
 
 ```js
 const createContext = async () => await context({
-  entryPoints: await glob('./servers/**/*.{js,jsx,ts,tsx}'),
+  entryPoints: [
+    'servers/**/*.js',
+    'servers/**/*.jsx',
+    'servers/**/*.ts',
+    'servers/**/*.tsx',
+  ],
   outbase: "./servers",
-  outdir: "./dist",
+  outdir: "./build",
   plugins: [BitburnerPlugin({
     port: 12525,
     types: 'NetscriptDefinitions.d.ts'
@@ -73,9 +78,14 @@ This enables file mirroring. You can use this to map remote servers to a local p
 
 ```js
 const createContext = async () => await context({
-  entryPoints: await glob('./servers/**/*.{js,jsx,ts,tsx}'),
+  entryPoints: [
+    'servers/**/*.js',
+    'servers/**/*.jsx',
+    'servers/**/*.ts',
+    'servers/**/*.tsx',
+  ],
   outbase: "./servers",
-  outdir: "./dist",
+  outdir: "./build",
   plugins: [BitburnerPlugin({
     port: 12525,
     types: 'NetscriptDefinitions.d.ts',
@@ -95,3 +105,37 @@ ctx.watch();
 
 Any file on home would then be placed in `local/path/home` and other servers in their respective directories.
 Any changes made locally will then be synced into the game and any changes made in the game will also be synced locally.
+
+### Distribute
+
+This enables automatic distribution of files in a folder to multiple servers. For example, you can select a folder in 'build' to distribute scripts automatically once built like this
+
+```js
+const createContext = async () => await context({
+  entryPoints: [
+    'servers/**/*.js',
+    'servers/**/*.jsx',
+    'servers/**/*.ts',
+    'servers/**/*.tsx',
+  ],
+  outbase: "./servers",
+  outdir: "./build",
+  plugins: [BitburnerPlugin({
+    port: 12525,
+    types: 'NetscriptDefinitions.d.ts',
+    distribute: {
+      'build/home/dist': ['server-1', 'server-2', 'server-3']
+    }
+  })],
+  bundle: true,
+  format: 'esm',
+  platform: 'browser',
+  logLevel: 'info'
+});
+
+let ctx = await createContext();
+ctx.watch();
+
+```
+
+now all files that are developed in 'servers/home/dist' will not only be uploaded to 'home' but also 'server-1', 'server-2' and 'server-3'.
