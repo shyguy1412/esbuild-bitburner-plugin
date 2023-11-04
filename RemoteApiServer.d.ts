@@ -4,6 +4,7 @@ declare class RemoteApiServer extends WebSocket.server {
     getId(): number;
     listen(port: number, callback: () => void): void;
     mirror(targetPath: string, ...servers: string[]): RemoteFileMirror;
+    distribute(targetPath: string, ...servers: string[]): RemoteFileMirror;
     write(obj: any): Promise<any>;
     getDefinitionFile(): Promise<any>;
     pushFile({ filename, content, server }: {

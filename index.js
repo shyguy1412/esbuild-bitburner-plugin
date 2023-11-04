@@ -36,6 +36,14 @@ const BitburnerPlugin = (opts) => ({
     });
 
     remoteAPI.on('client-connected', async () => {
+      if (!opts.distribute) return;
+
+      for (const path in opts.distribute) {
+        remoteAPI.distribute(path, ...opts.distribute[path]);
+      }
+    });
+
+    remoteAPI.on('client-connected', async () => {
       if (!opts.mirror) return;
 
       const mirrors = [];
