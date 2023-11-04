@@ -2,6 +2,9 @@ const RemoteApiServer = require('./RemoteApiServer');
 const fs = require('fs/promises');
 const { existsSync } = require('fs');
 
+/** @type RemoteApiServer */
+let remoteAPI;
+
 /** @type {(opts:import('./index').BitburnerPluginOptions) => import('esbuild').Plugin} */
 const BitburnerPlugin = (opts) => ({
   name: "BitburnerPlugin",
@@ -19,7 +22,9 @@ const BitburnerPlugin = (opts) => ({
     if (!outdir)
       throw new Error("BitburnerPlugin requires the outdir option to be set");
 
-    const remoteAPI = new RemoteApiServer();
+    if (!remoteAPI)
+      remoteAPI = new RemoteApiServer();
+
     remoteAPI.listen(opts.port, () => {
       console.log('✅ RemoteAPI Server listening on port ' + opts.port);
     });
@@ -161,5 +166,6 @@ const BitburnerPlugin = (opts) => ({
 
 module.exports = {
   default: BitburnerPlugin,
-  BitburnerPlugin
+  BitburnerPlugin,
+  remoteAPI,
 };

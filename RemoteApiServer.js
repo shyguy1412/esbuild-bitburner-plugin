@@ -5,6 +5,7 @@ const RemoteFileMirror = require('./RemoteFileMirror');
 class RemoteApiServer extends WebSocketServer {
 
   #counter;
+  #queue;
 
   constructor() {
     super({
@@ -17,7 +18,7 @@ class RemoteApiServer extends WebSocketServer {
       maxReceivedFrameSize: 1.49e+7
     });
 
-    this.queue = new Map();
+    this.#queue = new Map();
     this.#counter = 1;
     RemoteFileMirror.remoteApi = this;
   }
@@ -28,7 +29,9 @@ class RemoteApiServer extends WebSocketServer {
 
   listen(port, callback) {
 
+    console.log(port);
     if (this.config.httpServer[0].listening) {
+      console.log('WARNING: RemoteAPI Server is already listening on port ' + this.config.httpServer[0].address().port);
       return;
     }
 
@@ -44,9 +47,9 @@ class RemoteApiServer extends WebSocketServer {
 
       this.connection.on('message', (e) => {
         const response = JSON.parse(e.utf8Data);
-        if (this.queue.has(response.id)) {
-          this.queue.get(response.id)(response);
-          this.queue.delete(response.id);
+        if (this.#queue.has(response.id)) {
+          this.#queue.get(response.id)(response);
+          this.#queue.delete(response.id);
         }
       });
 
@@ -72,7 +75,7 @@ class RemoteApiServer extends WebSocketServer {
         ...obj
       });
 
-      this.queue.set(id, resolve);
+      this.#queue.set(id, resolve);
 
       this.connection.send(message);
 
