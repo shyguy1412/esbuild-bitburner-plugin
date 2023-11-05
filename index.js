@@ -136,7 +136,7 @@ const BitburnerPlugin = (opts) => ({
           path: `${outdir}/${file.path}/${file.name}`
         }));
 
-      console.log(files);
+      // console.log(files);
 
       const promises = files
         .map(async ({ filename, server, path }) => remoteAPI.pushFile({

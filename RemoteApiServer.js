@@ -81,11 +81,11 @@ class RemoteApiServer extends WebSocketServer {
         });
       }
 
-      console.log(filePath);
+      // console.log(filePath);
 
     });
     //copy files to servers
-    console.log(distributor);
+    // console.log(distributor);
     return () => {
       distributor.close();
     };
