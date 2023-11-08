@@ -6,8 +6,6 @@ If you are looking for a ready to go template for your workspace, have a look at
 
 ## How to use
 
-Here is an example using [glob](https://www.npmjs.com/package/glob) to capture all entrypoints:
-
 ```js
 const createContext = async () => await context({
   entryPoints: [
