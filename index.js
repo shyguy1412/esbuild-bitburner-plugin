@@ -8,10 +8,13 @@ let remoteAPI;
 /** @type {(opts:import('./index').BitburnerPluginOptions) => import('esbuild').Plugin} */
 const BitburnerPlugin = (opts) => ({
   name: "BitburnerPlugin",
-  setup(pluginBuild) {
+  async setup(pluginBuild) {
     opts ??= {};
 
     const { outdir } = pluginBuild.initialOptions;
+    const extensions = opts.extensions ?? [];
+
+    await Promise.allSettled(extensions.map(e => (e.setup ?? (_ => { }))()));
 
     if (!opts.port)
       throw new Error('No port provided');
@@ -29,6 +32,12 @@ const BitburnerPlugin = (opts) => ({
       console.log('✅ RemoteAPI Server listening on port ' + opts.port);
     });
 
+    await Promise.allSettled(extensions.map(e => (e.beforeConnect ?? (_ => { }))()));
+
+    remoteAPI.on('client-connected', () => {
+      Promise.allSettled(extensions.map(e => (e.afterConnect ?? (_ => { }))(remoteAPI)));
+    });
+
     remoteAPI.on('client-connected', async () => {
       if (!opts.types) return;
       const types = await remoteAPI.getDefinitionFile();
@@ -38,9 +47,13 @@ const BitburnerPlugin = (opts) => ({
     remoteAPI.on('client-connected', async () => {
       if (!opts.distribute) return;
 
+      await Promise.allSettled(extensions.map(e => (e.beforeDistribute ?? (_ => { }))(remoteAPI)));
+
       for (const path in opts.distribute) {
         remoteAPI.distribute(path, ...opts.distribute[path]);
       }
+
+      await Promise.allSettled(extensions.map(e => (e.afterDistribute ?? (_ => { }))(remoteAPI)));
     });
 
     remoteAPI.on('client-connected', async () => {
@@ -85,6 +98,7 @@ const BitburnerPlugin = (opts) => ({
       startTime = Date.now();
       if (existsSync(outdir))
         await fs.rm(outdir, { recursive: true });
+      Promise.allSettled(extensions.map(e => (e.beforeBuild ?? (_ => { }))()));
     });
 
     pluginBuild.onResolve({ filter: /^react(-dom)?$/ }, (opts) => {
@@ -108,10 +122,6 @@ const BitburnerPlugin = (opts) => ({
     pluginBuild.onEnd(async (result) => {
       if (result.errors.length != 0) return;
       if (queued) return;
-      if (!existsSync(outdir)) {
-        console.log('No files have been output!');
-        return;
-      }
 
       let endTime = Date.now();
       if (!remoteAPI.connection || !remoteAPI.connection.connected) {
@@ -136,7 +146,7 @@ const BitburnerPlugin = (opts) => ({
           path: `${outdir}/${file.path}/${file.name}`
         }));
 
-      // console.log(files);
+      if (files.length == 0) return;
 
       const promises = files
         .map(async ({ filename, server, path }) => remoteAPI.pushFile({
@@ -165,6 +175,8 @@ const BitburnerPlugin = (opts) => ({
       console.log(`⚡ \x1b[32mDone in \x1b[33m${endTime - startTime}ms\x1b[0m`);
       console.log();
 
+      await Promise.allSettled(extensions.map(e => (e.afterBuild ?? (_ => { }))(remoteAPI)));
+
       return;
     });
 
@@ -177,5 +189,4 @@ const BitburnerPlugin = (opts) => ({
 module.exports = {
   default: BitburnerPlugin,
   BitburnerPlugin,
-  remoteAPI,
 };

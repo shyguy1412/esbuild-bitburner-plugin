@@ -3,8 +3,6 @@ const WebSocketServer = require('websocket').server;
 const RemoteFileMirror = require('./RemoteFileMirror');
 const watchDirectory = require('chokidar').watch;
 const fs = require('fs/promises');
-const { remoteAPI } = require('.');
-
 class RemoteApiServer extends WebSocketServer {
 
   #counter;
