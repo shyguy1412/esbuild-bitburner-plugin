@@ -11,7 +11,7 @@ const createContext = async () => await context({
   packages: 'external'
 });
 
-let ctx = await createContext();
+const ctx = await createContext();
 if (WATCH) {
   ctx.watch();
 } else {
