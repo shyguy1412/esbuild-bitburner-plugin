@@ -10,7 +10,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/NilsRamstoeck/esbuild-bitburner-plugin.git"
+    "url": "git+https://github.com/shyguy1412/esbuild-bitburner-plugin.git"
   },
   "keywords": [
     "esbuild"
@@ -18,9 +18,9 @@
   "author": "Nils Ramstöck",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/NilsRamstoeck/esbuild-bitburner-plugin/issues"
+    "url": "https://github.com/shyguy1412/esbuild-bitburner-plugin/issues"
   },
-  "homepage": "https://github.com/NilsRamstoeck/esbuild-bitburner-plugin#readme",
+  "homepage": "https://github.com/shyguy1412/esbuild-bitburner-plugin#readme",
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/websocket": "^1.0.10",
