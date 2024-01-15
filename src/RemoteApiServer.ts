@@ -54,7 +54,7 @@ export class RemoteApiServer extends WebSocketServer {
       maxReceivedFrameSize: 1.49e+7
     });
 
-    this.#queue = new Map();
+    this.#queue = new Map<number, [(arg: any) => void, (arg: any) => void]>();
     this.#counter = 1;
     this.options = options;
     RemoteFileMirror.remoteApi = this;
@@ -98,7 +98,7 @@ export class RemoteApiServer extends WebSocketServer {
       this.connection.on('message', (e) => {
         const response = JSON.parse(e.type == 'utf8' ? e.utf8Data : '');
         if (this.#queue.has(response.id)) {
-          this.#queue.get(response.id)(response);
+          this.#queue.get(response.id)![+('error' in response)](response);
           this.#queue.delete(response.id);
         }
       });
@@ -139,7 +139,7 @@ export class RemoteApiServer extends WebSocketServer {
     };
   }
 
-  write(obj: Record<string, any>): Promise<any> {
+  write(obj: Record<string, any>): Promise<{ result: any; }> {
     return new Promise((resolve, reject) => {
       if (!this.connection || !this.connection.connected) {
         reject("No open connection");
@@ -152,7 +152,7 @@ export class RemoteApiServer extends WebSocketServer {
         ...obj
       });
 
-      this.#queue.set(id, resolve);
+      this.#queue.set(id, [resolve, reject]);
 
       this.connection.send(message);
 

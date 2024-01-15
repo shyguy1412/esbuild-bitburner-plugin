@@ -176,9 +176,9 @@ export class RemoteFileMirror {
       const file = await RemoteFileMirror.remoteApi.getFile({
         filename: remotePath,
         server: remoteServer
-      });
+      }).catch(r => undefined);
 
-      if (deleted && file.error) return; //File is already deleted
+      if (deleted && !file) return; //File is already deleted
       // if (!deleted && file.content == (await fs.readFile(filePath)).toString('utf8'))
       console.log(`Local change detected, syncing files with [${remoteServer}]`);
 
