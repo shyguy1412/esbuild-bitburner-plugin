@@ -148,7 +148,7 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts) 
       if (result.errors.length != 0) return;
       if (queued) return;
 
-      let endTime = Date.now();
+      const endTime = Date.now();
       if (!remoteAPI.connection || !remoteAPI.connection.connected) {
         queued = true;
         console.log('Waiting for client to connect');
