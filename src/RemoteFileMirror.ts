@@ -1,20 +1,21 @@
-const path = require('path');
-const fs = require('fs/promises');
-const pathExists = require('fs').existsSync;
-const watchDirectory = require('chokidar').watch;
+import path from 'path';
+import fs from 'fs/promises';
+import { existsSync as pathExists } from 'fs';
+import { FSWatcher, watch as watchDirectory } from 'chokidar';
+import { RemoteApiServer } from './RemoteApiServer';
 
 
-class RemoteFileMirror {
-  static remoteApi;
+export class RemoteFileMirror {
+  static remoteApi: RemoteApiServer;
 
-  servers = [];
-  targetPath;
-  fileCache = {};
+  servers: string[];
+  targetPath: string;
+  fileCache: Record<string, string> = {};
   syncing = false;
-  remotePollTimeout;
-  fileWatcher;
+  remotePollTimeout: NodeJS.Timeout | undefined;
+  fileWatcher: FSWatcher | undefined;
 
-  constructor(targetPath, servers) {
+  constructor(targetPath: string, servers: string[]) {
     if (!RemoteFileMirror.remoteApi) {
       throw new Error('Assign remoteAPI before instantiating');
     }
@@ -38,16 +39,16 @@ class RemoteFileMirror {
     }
   }
 
-  writeToFilesCache(files) {
+  writeToFilesCache(files: Record<string, string>) {
     for (const file in files) {
       this.fileCache[file] = files[file];
     }
   };
 
-  compareFilesToCache(files) {
+  compareFilesToCache(files: Record<string, string>) {
     const diff = {
-      mod: {},
-      rem: {},
+      mod: {} as Record<string, string>,
+      rem: {} as Record<string, string>,
     };
 
     for (const file in files) {
@@ -71,7 +72,7 @@ class RemoteFileMirror {
   }
 
   async getAllServerFiles() {
-    const files = {};
+    const files: Record<string, string> = {};
 
     for (const server of this.servers) {
       const serverFiles = (await RemoteFileMirror.remoteApi.getAllFiles(server)).result;
@@ -221,6 +222,4 @@ class RemoteFileMirror {
   }
 
 }
-
-module.exports = RemoteFileMirror;
 
