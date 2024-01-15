@@ -36,6 +36,10 @@ import { AddressInfo } from 'net';
 //   #private;
 // }
 
+function isUtf8(event: any): event is { type: 'utf8'; } {
+  return event.type === 'utf8';
+}
+
 export class RemoteApiServer extends WebSocketServer {
 
   #counter;
@@ -96,7 +100,12 @@ export class RemoteApiServer extends WebSocketServer {
       this.connection = request.accept(null, request.origin);
 
       this.connection.on('message', (e) => {
-        const response = JSON.parse(e.type == 'utf8' ? e.utf8Data : '');
+
+        if (!isUtf8(e)) {
+          throw new Error('Unexpected binary data message');
+        }
+
+        const response = JSON.parse(e.utf8Data);
         if (this.#queue.has(response.id)) {
           this.#queue.get(response.id)![+('error' in response)](response);
           this.#queue.delete(response.id);
