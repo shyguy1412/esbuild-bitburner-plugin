@@ -29,8 +29,6 @@ export type BitburnerPluginOptions = Partial<{
 export type PluginExtension = NonNullable<BitburnerPluginOptions['extensions']>[number];
 
 
-let remoteAPI: RemoteApiServer;
-
 export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts) => ({
   name: "BitburnerPlugin",
   async setup(pluginBuild) {
@@ -38,6 +36,11 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts) 
 
     const { outdir } = pluginBuild.initialOptions;
     const extensions = opts.extensions ?? [];
+    const remoteAPI = new RemoteApiServer(opts);
+
+    pluginBuild.onDispose(() => {
+      remoteAPI.shutDown();
+    });
 
     await Promise.allSettled(extensions.map(e => (e.setup ?? (() => { }))()));
 
@@ -49,9 +52,6 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts) 
 
     if (!outdir)
       throw new Error("BitburnerPlugin requires the outdir option to be set");
-
-    if (!remoteAPI)
-      remoteAPI = new RemoteApiServer(opts);
 
     remoteAPI.listen(opts.port, () => {
       console.log('✅ RemoteAPI Server listening on port ' + opts.port);
