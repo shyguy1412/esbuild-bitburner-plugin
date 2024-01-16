@@ -3,6 +3,7 @@ import fs from 'fs/promises';
 import { existsSync as pathExists } from 'fs';
 import { FSWatcher, watch as watchDirectory } from 'chokidar';
 import { RemoteApiServer } from './RemoteApiServer';
+import { BitburnerPluginOptions } from '.';
 
 
 export class RemoteFileMirror {
@@ -14,8 +15,9 @@ export class RemoteFileMirror {
   syncing = false;
   remotePollTimeout: NodeJS.Timeout | undefined;
   fileWatcher: FSWatcher | undefined;
+  options: BitburnerPluginOptions;
 
-  constructor(targetPath: string, servers: string[]) {
+  constructor(targetPath: string, servers: string[], options: BitburnerPluginOptions) {
     if (!RemoteFileMirror.remoteApi) {
       throw new Error('Assign remoteAPI before instantiating');
     }
@@ -24,7 +26,7 @@ export class RemoteFileMirror {
 
     this.targetPath = targetPath;
     this.servers = servers;
-
+    this.options = options;
   }
 
   async initFileCache() {
@@ -159,7 +161,7 @@ export class RemoteFileMirror {
 
     pollRemote();
 
-    this.fileWatcher = watchDirectory(this.targetPath, { ignoreInitial: true });
+    this.fileWatcher = watchDirectory(this.targetPath, { ignoreInitial: true, usePolling: this.options.usePolling, interval: this.options.pollingInterval });
 
     this.fileWatcher.on('all', async (e, filePath) => {
       if (this.syncing) return;

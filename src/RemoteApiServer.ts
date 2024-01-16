@@ -118,12 +118,12 @@ export class RemoteApiServer extends WebSocketServer {
   }
 
   mirror(targetPath: string, ...servers: string[]) {
-    return new RemoteFileMirror(targetPath, servers);
+    return new RemoteFileMirror(targetPath, servers, this.options);
   }
 
   distribute(targetPath: string, ...servers: string[]) {
     //listen to new files in targetPath
-    const distributor = watchDirectory(targetPath, { ignoreInitial: true, usePolling: this.options.usePolling });
+    const distributor = watchDirectory(targetPath, { ignoreInitial: true, usePolling: this.options.usePolling, interval: this.options.pollingInterval });
     distributor.on('all', async (e, filePath) => {
       if (e != 'add' && e != 'change' || !(await fs.stat(filePath)).isFile()) return;
 

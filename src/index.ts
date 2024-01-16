@@ -20,6 +20,11 @@ export type BitburnerPluginOptions = Partial<{
    */
   usePolling: boolean;
   /**
+   * Sets the interval for the filesystem polling
+   * Only used when usePolling is set to true.  
+   */
+  pollingInterval: number;
+  /**
    * Set this to true to push mirrored files on connect.  
    * By default the file mirror pulls the ingame files on connect, overriding local files with the current ingame state.  
    */
