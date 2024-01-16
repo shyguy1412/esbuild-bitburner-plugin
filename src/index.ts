@@ -162,7 +162,10 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts) 
 
       const files = (await fs.readdir(outdir, { recursive: true, withFileTypes: true }))
         .filter(file => file.isFile())
-        .map(file => { file.path = file.path.replaceAll('\\', '/').replace(/^.*?\//, ''); return file; }) // rebase path
+        .map(file => ({
+          name: file.name,
+          path: file.path.replaceAll('\\', '/').replace(/^.*?\//, '')
+        })) // rebase path
         .map(file => ({
           server: file.path.split('/')[0],
           filename: `${file.path}/${file.name}`.replace(/^.*?\//, ''),

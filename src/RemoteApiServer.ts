@@ -127,12 +127,12 @@ export class RemoteApiServer extends WebSocketServer {
     distributor.on('all', async (e, filePath) => {
       if (e != 'add' && e != 'change' || !(await fs.stat(filePath)).isFile()) return;
 
-      filePath = filePath.replaceAll('\\', '/'); //deal with windows
+      const santizedFilePath = filePath.replaceAll('\\', '/'); //deal with windows
       const content = (await fs.readFile(filePath)).toString('utf8');
 
       for (const server of servers) {
         await this.pushFile({
-          filename: filePath.replace(targetPath, ''), //strip basepath
+          filename: santizedFilePath.replace(targetPath, ''), //strip basepath
           server,
           content
         });

@@ -168,18 +168,18 @@ export class RemoteFileMirror {
       if ((!deleted && !(await fs.stat(filePath)).isFile()) || e == 'add')
         return;
 
-      filePath = filePath.replaceAll('\\', '/');
+      const sanitizedFilePath = filePath.replaceAll('\\', '/');
 
-      const remoteServer = filePath.replace(this.targetPath, '').replace(/\/?(.*?)\/.*/, '$1');
-      const remotePath = filePath.replace(this.targetPath, '').replace(`/${remoteServer}/`, '');
+      const remoteServer = sanitizedFilePath.replace(this.targetPath, '').replace(/\/?(.*?)\/.*/, '$1');
+      const remotePath = sanitizedFilePath.replace(this.targetPath, '').replace(`/${remoteServer}/`, '');
 
       const file = await RemoteFileMirror.remoteApi.getFile({
         filename: remotePath,
         server: remoteServer
-      }).catch(r => undefined);
+      }).catch(_ => undefined);
 
       if (deleted && !file) return; //File is already deleted
-      // if (!deleted && file.content == (await fs.readFile(filePath)).toString('utf8'))
+      // if (!deleted && file.content == (await fs.readFile(sanitizedFilePath)).toString('utf8'))
       console.log(`Local change detected, syncing files with [${remoteServer}]`);
 
       if (deleted) {
@@ -188,15 +188,15 @@ export class RemoteFileMirror {
           server: remoteServer
         });
 
-        if ((await fs.readdir(path.dirname(filePath))).length == 0) {
-          await fs.rmdir(path.dirname(filePath));
+        if ((await fs.readdir(path.dirname(sanitizedFilePath))).length == 0) {
+          await fs.rmdir(path.dirname(sanitizedFilePath));
         }
 
         console.log(`Deleted file ${remoteServer}://${remotePath}`);
 
       } else {
 
-        const content = (await fs.readFile(filePath)).toString('utf8');
+        const content = (await fs.readFile(sanitizedFilePath)).toString('utf8');
 
         await RemoteFileMirror.remoteApi.pushFile({
           filename: remotePath,
@@ -205,7 +205,7 @@ export class RemoteFileMirror {
         });
 
         this.writeToFilesCache({ [`${remoteServer}://${remotePath}`]: content });
-        console.log(`Wrote file ${filePath} to ${remoteServer}://${remotePath}`);
+        console.log(`Wrote file ${sanitizedFilePath} to ${remoteServer}://${remotePath}`);
       }
 
       console.log();
