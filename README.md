@@ -64,7 +64,7 @@ then `homeScript.js` will be uploaded to `home` and `otherScript.js` to `otherSe
 
 ### Port
 
-The port that the RemoteAPI Server will listen on. This is the same port that you need to enter inside Bitburner to connect to the Plugin. default is `12525`.
+The port that the RemoteAPI Server will listen on. This is the same port that you need to enter inside Bitburner to connect to your editor.
 
 ### Types
 
