@@ -29,10 +29,13 @@ export type BitburnerPluginOptions = Partial<{
 export type PluginExtension = NonNullable<BitburnerPluginOptions['extensions']>[number];
 
 
-export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts) => ({
+export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts = {}) => ({
   name: "BitburnerPlugin",
   async setup(pluginBuild) {
-    opts ??= {};
+
+    if (typeof opts != 'object') {
+      throw new TypeError('Expected options to be an object');
+    }; //Ensure opts is an object
 
     const { outdir } = pluginBuild.initialOptions;
     const extensions = opts.extensions ?? [];
@@ -42,7 +45,7 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts) 
       remoteAPI.shutDown();
     });
 
-    await Promise.allSettled(extensions.map(e => (e.setup ?? (() => { }))()));
+    await Promise.allSettled(extensions.map(e => callNullableFunction(e.setup)));
 
     if (!opts.port)
       throw new Error('No port provided');
@@ -57,10 +60,10 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts) 
       console.log('✅ RemoteAPI Server listening on port ' + opts.port);
     });
 
-    await Promise.allSettled(extensions.map(e => (e.beforeConnect ?? (() => { }))()));
+    await Promise.allSettled(extensions.map(e => callNullableFunction(e.beforeConnect)));
 
     remoteAPI.on('client-connected', () => {
-      Promise.allSettled(extensions.map(e => (e.afterConnect ?? (() => { }))(remoteAPI)));
+      Promise.allSettled(extensions.map(e => callNullableFunction(e.afterConnect, remoteAPI)));
     });
 
     remoteAPI.on('client-connected', async () => {
@@ -72,13 +75,13 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts) 
     remoteAPI.on('client-connected', async () => {
       if (!opts.distribute) return;
 
-      await Promise.allSettled(extensions.map(e => (e.beforeDistribute ?? (() => { }))(remoteAPI)));
+      await Promise.allSettled(extensions.map(e => callNullableFunction(e.beforeDistribute, remoteAPI)));
 
       for (const path in opts.distribute) {
         remoteAPI.distribute(path, ...opts.distribute[path]);
       }
 
-      await Promise.allSettled(extensions.map(e => (e.afterDistribute ?? (() => { }))(remoteAPI)));
+      await Promise.allSettled(extensions.map(e => callNullableFunction(e.afterDistribute, remoteAPI)));
     });
 
     remoteAPI.on('client-connected', async () => {
@@ -123,7 +126,7 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts) 
       startTime = Date.now();
       if (existsSync(outdir))
         await fs.rm(outdir, { recursive: true });
-      Promise.allSettled(extensions.map(e => (e.beforeBuild ?? (() => { }))()));
+      Promise.allSettled(extensions.map(e => callNullableFunction(e.beforeBuild)));
     });
 
     pluginBuild.onResolve({ filter: /^react(-dom)?$/ }, (opts) => {
@@ -164,8 +167,8 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts) 
         .filter(file => file.isFile())
         .map(file => ({
           name: file.name,
-          path: file.path.replaceAll('\\', '/').replace(/^.*?\//, '')
-        })) // rebase path
+          path: file.path.replaceAll('\\', '/').replace(/^.*?\//, '') // rebase path
+        }))
         .map(file => ({
           server: file.path.split('/')[0],
           filename: `${file.path}/${file.name}`.replace(/^.*?\//, ''),
@@ -174,15 +177,13 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts) 
 
       if (files.length == 0) return;
 
-      const promises = files
-        .map(async ({ filename, server, path }) => remoteAPI.pushFile({
+      await Promise.all(
+        files.map(async ({ filename, server, path }) => remoteAPI.pushFile({
           filename,
           server,
           content: (await fs.readFile(path)).toString('utf8')
-        }));
-
-      await Promise.all(promises);
-
+        }))
+      );
 
       const filesWithRAM = await Promise.all(files.map(async ({ filename, server }) => ({
         filename,
@@ -202,10 +203,12 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts) 
       console.log(`⚡ \x1b[32mDone in \x1b[33m${endTime - startTime}ms\x1b[0m`);
       console.log();
 
-      await Promise.allSettled(extensions.map(e => (e.afterBuild ?? (() => { }))(remoteAPI)));
-
-      return;
+      await Promise.allSettled(extensions.map(e => callNullableFunction(e.afterBuild, remoteAPI)));
     });
 
   }
 });
+
+function callNullableFunction<T extends (...args: any) => any>(func?: T, ...args: Parameters<T>): ReturnType<T> | void {
+  return func ? func(...(args as [])) : undefined; //args is a rest parameter and therefore guranteed to be an array
+};
