@@ -5,7 +5,7 @@
   "main": "build/index.js",
   "scripts": {
     "dev": "node build.mjs --watch",
-    "build": "node build.mjs",
+    "build": "node build.mjs && tsc",
     "prepare": "npm run build"
   },
   "repository": {
@@ -24,7 +24,8 @@
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/websocket": "^1.0.10",
-    "esbuild": "^0.19.11"
+    "esbuild": "^0.19.11",
+    "typescript": "^5.3.3"
   },
   "dependencies": {
     "chokidar": "^3.5.3",

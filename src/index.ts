@@ -2,6 +2,7 @@ import { Plugin } from "esbuild";
 import { RemoteApiServer } from './RemoteApiServer';
 import fs from 'fs/promises';
 import { existsSync } from 'fs';
+import { RemoteFileMirror } from "./RemoteFileMirror";
 
 
 export type BitburnerPluginOptions = Partial<{
@@ -59,7 +60,7 @@ export type BitburnerPluginOptions = Partial<{
   }[];
 }>;
 export type PluginExtension = NonNullable<BitburnerPluginOptions['extensions']>[number];
-
+export type { RemoteApiServer, RemoteFileMirror };
 
 export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts = {}) => ({
   name: "BitburnerPlugin",
