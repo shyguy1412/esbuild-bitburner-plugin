@@ -101,8 +101,9 @@ export class RemoteFileMirror {
 
     const diff = { ...filesToWrite, ...filesToRemove }; //For output formatting only
 
+    const logger = createLogBatch();
     if (Object.keys(diff).length != 0)
-      console.log(`Remote change detected, syncing files with [${Object
+      logger.log(`Remote change detected, syncing files with [${Object
         .keys(diff)
         .map(k => k.split('://', 2)[0])
         .filter((el, i, arr) => i == arr.indexOf(el))
@@ -116,7 +117,6 @@ export class RemoteFileMirror {
     //   }, Object.keys(diff).length);
     // }
 
-    const logger = createLogBatch();
     for (const file in filesToWrite) {
       const content = filesToWrite[file];
       const filePath = path.join(this.targetPath, file.replace(/:\/\//, '/'));
@@ -189,9 +189,8 @@ export class RemoteFileMirror {
       if (deleted && !file) return; //File is already deleted
       if (!deleted && file?.result == (await fs.readFile(sanitizedFilePath)).toString('utf8')) return; //file hasnt changed
       
-      console.log(`Local change detected, syncing files with [${remoteServer}]`);
-
       const logger = createLogBatch();
+      logger.log(`Local change detected, syncing files with [${remoteServer}]`);
       if (deleted) {
         await RemoteFileMirror.remoteApi.deleteFile({
           filename: remotePath,
