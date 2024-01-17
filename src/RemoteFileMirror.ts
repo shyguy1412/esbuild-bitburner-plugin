@@ -4,6 +4,7 @@ import { existsSync as pathExists } from 'fs';
 import { FSWatcher, watch as watchDirectory } from 'chokidar';
 import { RemoteApiServer } from './RemoteApiServer';
 import { BitburnerPluginOptions } from '.';
+import { createLogBatch } from './lib/log';
 
 
 export class RemoteFileMirror {
@@ -22,11 +23,17 @@ export class RemoteFileMirror {
       throw new Error('Assign remoteAPI before instantiating');
     }
 
+
+    console.log(`Creating mirror [${servers.join(', ')}] => ${targetPath}`);
+
+
     console.log(`Creating mirror [${servers.join(', ')}] => ${targetPath}`);
 
     this.targetPath = targetPath;
     this.servers = servers;
     this.options = options;
+
+    console.log(`Creating mirror [${servers.join(', ')}] => ${targetPath}`);
   }
 
   async initFileCache() {
@@ -109,12 +116,13 @@ export class RemoteFileMirror {
       );
 
     // if (Object.keys(filesToRemove).length > 0 || Object.keys(filesToWrite).length > 0) {
-    //   console.log({
+    //   this.logger.log({
     //     filesToWrite,
     //     filesToRemove,
     //   }, Object.keys(diff).length);
     // }
 
+    const logger = createLogBatch();
     for (const file in filesToWrite) {
       const content = filesToWrite[file];
       const filePath = path.join(this.targetPath, file.replace(/:\/\//, '/'));
@@ -123,8 +131,10 @@ export class RemoteFileMirror {
         await fs.mkdir(path.dirname(filePath), { recursive: true });
 
       await fs.writeFile(filePath, content);
-      console.log(`Wrote file ${file} to ${filePath}`);
+      logger.log(`Wrote file ${file} to ${filePath}`);
     }
+
+    logger.dispatch();
 
     for (const file in filesToRemove) {
       delete this.fileCache[file];
@@ -140,12 +150,14 @@ export class RemoteFileMirror {
         await fs.rmdir(path.dirname(filePath));
       }
 
-      console.log(`Deleted file ${file}`);
+      logger.log(`Deleted file ${file}`);
     }
 
     if (Object.keys(filesToRemove).length > 0 || Object.keys(filesToWrite).length > 0) {
-      console.log();
+      logger.log();
     }
+
+    logger.dispatch();
 
     this.syncing = false;
   }
@@ -184,6 +196,7 @@ export class RemoteFileMirror {
       // if (!deleted && file.content == (await fs.readFile(sanitizedFilePath)).toString('utf8'))
       console.log(`Local change detected, syncing files with [${remoteServer}]`);
 
+      const logger = createLogBatch();
       if (deleted) {
         await RemoteFileMirror.remoteApi.deleteFile({
           filename: remotePath,
@@ -194,7 +207,7 @@ export class RemoteFileMirror {
           await fs.rmdir(path.dirname(sanitizedFilePath));
         }
 
-        console.log(`Deleted file ${remoteServer}://${remotePath}`);
+        logger.log(`Deleted file ${remoteServer}://${remotePath}`);
 
       } else {
 
@@ -207,10 +220,10 @@ export class RemoteFileMirror {
         });
 
         this.writeToFilesCache({ [`${remoteServer}://${remotePath}`]: content });
-        console.log(`Wrote file ${sanitizedFilePath} to ${remoteServer}://${remotePath}`);
+        logger.log(`Wrote file ${sanitizedFilePath} to ${remoteServer}://${remotePath}`);
       }
 
-      console.log();
+      logger.log().dispatch();
     });
 
   }

@@ -3,6 +3,7 @@ import { RemoteApiServer } from './RemoteApiServer';
 import fs from 'fs/promises';
 import { existsSync } from 'fs';
 import { RemoteFileMirror } from "./RemoteFileMirror";
+import { createLogBatch } from "./lib/log";
 
 
 export type BitburnerPluginOptions = Partial<{
@@ -62,9 +63,12 @@ export type BitburnerPluginOptions = Partial<{
 export type PluginExtension = NonNullable<BitburnerPluginOptions['extensions']>[number];
 export type { RemoteApiServer, RemoteFileMirror };
 
+//TODO Sanitize mirror and distribute paths for windows
 export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts = {}) => ({
   name: "BitburnerPlugin",
   async setup(pluginBuild) {
+
+    pluginBuild.initialOptions.logLevel = 'silent';
 
     if (typeof opts != 'object') {
       throw new TypeError('Expected options to be an object');
@@ -73,6 +77,7 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
     const { outdir } = pluginBuild.initialOptions;
     const extensions = opts.extensions ?? [];
     const remoteAPI = new RemoteApiServer(opts);
+    const logger = createLogBatch();
 
     pluginBuild.onDispose(() => {
       remoteAPI.shutDown();
@@ -90,7 +95,8 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
       throw new Error("BitburnerPlugin requires the outdir option to be set");
 
     remoteAPI.listen(opts.port, () => {
-      console.log('✅ RemoteAPI Server listening on port ' + opts.port);
+      logger.log('✅ RemoteAPI Server listening on port ' + opts.port);
+      logger.dispatch();
     });
 
     await Promise.allSettled(extensions.map(e => callNullableFunction(e.beforeConnect)));
@@ -122,7 +128,7 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
 
       const mirrors = [];
 
-      console.log();
+      logger.log();
 
       for (const path in opts.mirror) {
         if (!existsSync(path))
@@ -135,13 +141,13 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
         mirrors.push(mirror);
       }
 
-      console.log();
+      logger.log();
 
       for (const mirror of mirrors) {
         await mirror.initFileCache();
       }
 
-      console.log();
+      logger.log();
 
       for (const mirror of mirrors) {
         await mirror.syncWithRemote();
@@ -150,6 +156,8 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
       for (const mirror of mirrors) {
         mirror.watch();
       }
+
+      logger.dispatch();
     });
 
     let queued = false;
@@ -187,10 +195,10 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
       const endTime = Date.now();
       if (!remoteAPI.connection || !remoteAPI.connection.connected) {
         queued = true;
-        console.log('Waiting for client to connect');
+        logger.log('Waiting for client to connect').dispatch();
         await new Promise<void>(resolve => {
           remoteAPI.on('client-connected', () => {
-            console.log('Client connected');
+            logger.log('Client connected').dispatch();
             resolve();
           });
         });
@@ -230,11 +238,12 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
 
       queued = false;
 
-      console.log();
-      console.log(formatOutputFiles(filesWithRAM).join('\n'));
-      console.log();
-      console.log(`⚡ \x1b[32mDone in \x1b[33m${endTime - startTime}ms\x1b[0m`);
-      console.log();
+      logger.log();
+      logger.log(formatOutputFiles(filesWithRAM).join('\n'));
+      logger.log();
+      logger.log(`⚡ \x1b[32mDone in \x1b[33m${endTime - startTime}ms\x1b[0m`);
+      logger.log();
+      logger.dispatch();
 
       await Promise.allSettled(extensions.map(e => callNullableFunction(e.afterBuild, remoteAPI)));
     });
