@@ -197,7 +197,7 @@ export class RemoteFileMirror {
           server: remoteServer
         });
 
-        if ((await fs.readdir(path.dirname(sanitizedFilePath))).length == 0) {
+        if (pathExists(path.dirname(sanitizedFilePath)) && (await fs.readdir(path.dirname(sanitizedFilePath))).length == 0) {
           await fs.rmdir(path.dirname(sanitizedFilePath));
         }
 
