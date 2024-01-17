@@ -23,12 +23,6 @@ export class RemoteFileMirror {
       throw new Error('Assign remoteAPI before instantiating');
     }
 
-
-    console.log(`Creating mirror [${servers.join(', ')}] => ${targetPath}`);
-
-
-    console.log(`Creating mirror [${servers.join(', ')}] => ${targetPath}`);
-
     this.targetPath = targetPath;
     this.servers = servers;
     this.options = options;
