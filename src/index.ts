@@ -142,6 +142,9 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
       }
 
       for (const mirror of mirrors) {
+        if (opts.pushOnConnect)
+          await mirror.pushAllFiles();
+        else
         await mirror.syncWithRemote();
       }
 

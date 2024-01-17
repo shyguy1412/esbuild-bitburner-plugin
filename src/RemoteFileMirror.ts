@@ -90,6 +90,36 @@ export class RemoteFileMirror {
     return files;
   }
 
+  async pushAllFiles() {
+    await Promise.all(Object.keys(this.options.mirror ?? {}).map(async mirrorPath => {
+      const mirrorDir = await fs.readdir(mirrorPath, { withFileTypes: true });
+      const servers = mirrorDir.filter(f => f.isDirectory()).map(d => d.name);
+
+      await Promise.all(servers.map(async server => {
+        const files = await fs.readdir(`${mirrorPath}/${server}`, { recursive: true, withFileTypes: true });
+        await Promise.all(files
+          .filter(f => f.isFile())
+          .map(async ({ name, path: filePath }) => {
+            console.log({
+              mirrorPath,
+              server
+            });
+
+            const sanitizedPath = filePath
+              .replaceAll('\\', '/')
+              .replace(new RegExp(`^(\.\/)?${mirrorPath}\/${server}`), '');
+
+            await RemoteFileMirror.remoteApi.pushFile({
+              server,
+              filename: `${sanitizedPath}/${name}`,
+              content: (await fs.readFile(`${filePath}/${name}`)).toString('utf8')
+            });
+          })
+        );
+      }));
+    }));
+  }
+
   async syncWithRemote() {
     if (this.syncing) return;
     this.syncing = true;
