@@ -208,7 +208,7 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
       const endTime = Date.now();
       if (!remoteAPI.connection || !remoteAPI.connection.connected) {
         queued = true;
-        console.log('Waiting for client to connect');
+        console.log('Build successful, waiting for client to connect');
         await new Promise<void>(resolve => {
           remoteAPI.prependListener('client-connected', () => {
             console.log('Client connected');
