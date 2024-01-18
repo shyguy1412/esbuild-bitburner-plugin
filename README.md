@@ -2,7 +2,7 @@
 
 This is an ESBuild plugin that uses Bitburners remote API to push the build results into the game.
 
-If you are looking for a ready to go template for your workspace, have a look at [bb-external-editor](https://github.com/NilsRamstoeck/bb-external-editor).
+If you are looking for a ready to go template for your workspace, have a look at [bb-external-editor](https://github.com/shyguy1412/bb-external-editor).
 
 ## How to use
 
