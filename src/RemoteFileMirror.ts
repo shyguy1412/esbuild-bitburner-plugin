@@ -100,10 +100,6 @@ export class RemoteFileMirror {
         await Promise.all(files
           .filter(f => f.isFile())
           .map(async ({ name, path: filePath }) => {
-            console.log({
-              mirrorPath,
-              server
-            });
 
             const sanitizedPath = filePath
               .replaceAll('\\', '/')

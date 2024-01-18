@@ -1,10 +1,8 @@
-import { Plugin } from "esbuild";
+import { Plugin, formatMessages } from "esbuild";
 import { RemoteApiServer } from './RemoteApiServer';
 import fs from 'fs/promises';
 import { existsSync } from 'fs';
 import { RemoteFileMirror } from "./RemoteFileMirror";
-import { createLogBatch } from "./lib/log";
-
 
 export type BitburnerPluginOptions = Partial<{
   /**
@@ -68,7 +66,10 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
   name: "BitburnerPlugin",
   async setup(pluginBuild) {
 
-    pluginBuild.initialOptions.logLevel = 'silent';
+    const logLevel = pluginBuild.initialOptions.logLevel;
+    if (!['verbose', 'debug'].includes(logLevel!)) {
+      pluginBuild.initialOptions.logLevel = 'silent';
+    }
 
     if (typeof opts != 'object') {
       throw new TypeError('Expected options to be an object');
@@ -145,7 +146,7 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
         if (opts.pushOnConnect)
           await mirror.pushAllFiles();
         else
-        await mirror.syncWithRemote();
+          await mirror.syncWithRemote();
       }
 
       for (const mirror of mirrors) {
@@ -179,6 +180,25 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
         return {
           contents: 'module.exports = window.ReactDOM'
         };
+    });
+
+    pluginBuild.onEnd(async (result) => {
+      if (!result.errors.length && !result.warnings.length) return;
+      if (['silent', 'verbose', 'debug'].includes(logLevel!)) return;
+
+      const warnings = await formatMessages(result.warnings, { kind: 'warning', color: true });
+      const errors = await formatMessages(result.errors, { kind: 'error', color: true });
+
+      while (warnings.length && logLevel != 'error') {
+        console.log(warnings.shift()?.trimEnd());
+        console.log();
+      }
+
+      while (errors.length) {
+        console.log(errors.shift()?.trimEnd());
+        console.log();
+      }
+
     });
 
     pluginBuild.onEnd(async (result) => {
