@@ -48,14 +48,12 @@ export type BitburnerPluginOptions = Partial<{
    */
   extensions: {
     setup?: () => void | Promise<void>;
+    
     beforeConnect?: () => void | Promise<void>;
     afterConnect?: (remoteAPI: RemoteApiServer) => void | Promise<void>;
 
     beforeBuild?: () => void | Promise<void>;
     afterBuild?: (remoteAPI: RemoteApiServer) => void | Promise<void>;
-
-    beforeDistribute?: (remoteAPI: RemoteApiServer) => void | Promise<void>;
-    afterDistribute?: (remoteAPI: RemoteApiServer) => void | Promise<void>;
   }[];
 }>;
 export type PluginExtension = NonNullable<BitburnerPluginOptions['extensions']>[number];
@@ -113,13 +111,9 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
     remoteAPI.on('client-connected', async () => {
       if (!opts.distribute) return;
 
-      // await Promise.allSettled(extensions.map(e => callNullableFunction(e.beforeDistribute, remoteAPI)));
-
       for (const path in opts.distribute) {
         remoteAPI.distribute(path, ...opts.distribute[path]);
       }
-
-      // await Promise.allSettled(extensions.map(e => callNullableFunction(e.afterDistribute, remoteAPI)));
     });
 
     remoteAPI.on('client-connected', async () => {
