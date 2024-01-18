@@ -113,13 +113,13 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
     remoteAPI.on('client-connected', async () => {
       if (!opts.distribute) return;
 
-      await Promise.allSettled(extensions.map(e => callNullableFunction(e.beforeDistribute, remoteAPI)));
+      // await Promise.allSettled(extensions.map(e => callNullableFunction(e.beforeDistribute, remoteAPI)));
 
       for (const path in opts.distribute) {
         remoteAPI.distribute(path, ...opts.distribute[path]);
       }
 
-      await Promise.allSettled(extensions.map(e => callNullableFunction(e.afterDistribute, remoteAPI)));
+      // await Promise.allSettled(extensions.map(e => callNullableFunction(e.afterDistribute, remoteAPI)));
     });
 
     remoteAPI.on('client-connected', async () => {

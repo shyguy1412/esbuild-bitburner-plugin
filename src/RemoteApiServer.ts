@@ -126,17 +126,19 @@ export class RemoteApiServer extends WebSocketServer {
     const distributor = watchDirectory(targetPath, { ignoreInitial: true, usePolling: this.options.usePolling, interval: this.options.pollingInterval });
     distributor.on('all', async (e, filePath) => {
       if (e != 'add' && e != 'change' || !(await fs.stat(filePath)).isFile()) return;
-
+      
       const santizedFilePath = filePath.replaceAll('\\', '/'); //deal with windows
       const content = (await fs.readFile(filePath)).toString('utf8');
+      
+      console.log(`Distributing file ${filePath} to [${servers.join(', ')}]`);
 
-      for (const server of servers) {
-        await this.pushFile({
+      await Promise.all(servers.map(server =>
+        this.pushFile({
           filename: santizedFilePath.replace(targetPath, ''), //strip basepath
           server,
           content
-        });
-      }
+        })
+      ));
 
       // console.log(filePath);
 
