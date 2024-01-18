@@ -70,6 +70,16 @@ The port that the RemoteAPI Server will listen on. This is the same port that yo
 
 This is the path that the Netscript Definitions file will be placed at. This is optional.
 
+### Polling
+
+If your filesystem does not support filesystem events, you can set `usePolling` to true to enable polling.  
+You can also set `pollingInterval` to set the polling interval in ms
+
+### Push on Connect
+
+This option only affects mirror behaviour.  
+By default the game synchronizes the mirror with the ingame state on (re)connect. This means all changes made while not connected will be lost. By setting `pushOnConnect` to true, the mirror will always be uploaded into the game first, preserving any changes made when not connected.
+
 ### Mirror
 
 This enables file mirroring. You can use this to map remote servers to a local path like this:
@@ -155,9 +165,6 @@ const customExtension = {
 
   beforeBuild() { console.log('beforeBuild'); }, //Run before every build process
   afterBuild(remoteAPI) { console.log('afterBuild'); }, //Run after build results have been uploaded into the game
-
-  beforeDistribute(remoteAPI) { console.log('beforeDistribute'); }, //Run before distribution begins
-  afterDistribute(remoteAPI) { console.log('afterDistribute'); }, //Run after files have been distributed
 };
 
 const createContext = async () => await context({
@@ -182,7 +189,7 @@ const createContext = async () => await context({
   logLevel: 'info'
 });
 
-let ctx = await createContext();
+const ctx = await createContext();
 ctx.watch();
 
 ```
