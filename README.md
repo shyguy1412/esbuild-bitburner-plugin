@@ -164,7 +164,7 @@ const customExtension = {
   afterConnect(remoteAPI) { console.log('afterConnect'); }, //Run every time after the game (re)connects
 
   beforeBuild() { console.log('beforeBuild'); }, //Run before every build process
-  afterBuild(remoteAPI) { console.log('afterBuild'); }, //Run after build results have been uploaded into the game
+  afterBuild(remoteAPI) { console.log('afterBuild'); }, //Run after build, before results are uploaded into the game
 };
 
 const createContext = async () => await context({

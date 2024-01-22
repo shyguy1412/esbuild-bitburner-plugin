@@ -48,7 +48,7 @@ export type BitburnerPluginOptions = Partial<{
    */
   extensions: {
     setup?: () => void | Promise<void>;
-    
+
     beforeConnect?: () => void | Promise<void>;
     afterConnect?: (remoteAPI: RemoteApiServer) => void | Promise<void>;
 
@@ -60,6 +60,9 @@ export type PluginExtension = NonNullable<BitburnerPluginOptions['extensions']>[
 export type { RemoteApiServer, RemoteFileMirror };
 
 //TODO Sanitize mirror and distribute paths for windows
+//TODO Print errors when extension throws an exception
+//!Crash when all files get deleted (mirror)
+//!Deleting all files from a server will delete the server folder (mirror)
 export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts = {}) => ({
   name: "BitburnerPlugin",
   async setup(pluginBuild) {
@@ -211,6 +214,8 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
         });
       }
 
+      await Promise.allSettled(extensions.map(e => callNullableFunction(e.afterBuild, remoteAPI)));
+
       const files = (await fs.readdir(outdir, { recursive: true, withFileTypes: true }))
         .filter(file => file.isFile())
         .map(file => ({
@@ -251,7 +256,6 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
       console.log(`⚡ \x1b[32mDone in \x1b[33m${endTime - startTime}ms\x1b[0m`);
       console.log();
 
-      await Promise.allSettled(extensions.map(e => callNullableFunction(e.afterBuild, remoteAPI)));
     });
 
   }
