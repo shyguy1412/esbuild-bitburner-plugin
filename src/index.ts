@@ -78,14 +78,31 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
     }; //Ensure opts is an object
 
     const { outdir } = pluginBuild.initialOptions;
-    const extensions = opts.extensions ?? [];
+
+    const extensions = (opts.extensions ?? []).reduce((prev, cur) => {
+      for (const key in prev) {
+        const extension = cur[key as keyof PluginExtension];
+        if (extension)
+          //TS struggles to understand that extension is the right type
+          //since this is iterating over keys, this is the best I can do for now 
+          prev[key as keyof PluginExtension].push(extension as any)
+      }
+      return prev;
+    }, {
+      setup: [],
+      beforeConnect: [],
+      afterConnect: [],
+      beforeBuild: [],
+      afterBuild: [],
+    } as { [key in keyof Required<PluginExtension>]: NonNullable<PluginExtension[key]>[] });
+
     const remoteAPI = new RemoteApiServer(opts);
 
     pluginBuild.onDispose(() => {
       remoteAPI.shutDown();
     });
 
-    await Promise.allSettled(extensions.map(e => callNullableFunction(e.setup)));
+    await runExtensions(extensions.setup);
 
     if (!opts.port)
       throw new Error('No port provided');
@@ -100,10 +117,10 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
       console.log('✅ RemoteAPI Server listening on port ' + opts.port);
     });
 
-    await Promise.allSettled(extensions.map(e => callNullableFunction(e.beforeConnect)));
+    await runExtensions(extensions.beforeConnect);
 
-    remoteAPI.on('client-connected', () => {
-      Promise.allSettled(extensions.map(e => callNullableFunction(e.afterConnect, remoteAPI)));
+    remoteAPI.on('client-connected', async () => {
+      await runExtensions(extensions.afterConnect, remoteAPI);
     });
 
     remoteAPI.on('client-connected', async () => {
@@ -160,7 +177,7 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
       startTime = Date.now();
       if (existsSync(outdir))
         await fs.rm(outdir, { recursive: true });
-      Promise.allSettled(extensions.map(e => callNullableFunction(e.beforeBuild)));
+      await runExtensions(extensions.beforeBuild)
     });
 
     pluginBuild.onResolve({ filter: /^react(-dom)?$/ }, (opts) => {
@@ -216,7 +233,7 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
         });
       }
 
-      await Promise.allSettled(extensions.map(e => callNullableFunction(e.afterBuild, remoteAPI)));
+      await runExtensions(extensions.afterBuild, remoteAPI);
 
       const files = (await fs.readdir(outdir, { recursive: true, withFileTypes: true }))
         .filter(file => file.isFile())
@@ -263,6 +280,9 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
   }
 });
 
-function callNullableFunction<T extends (...args: any) => any>(func?: T, ...args: Parameters<T>): ReturnType<T> | void {
-  return func ? func(...(args as [])) : undefined; //args is a rest parameter and therefore guranteed to be an array
-};
+async function runExtensions<T extends (...args: any[]) => any>(extensions: T[], ...args: Parameters<T>) {
+  for (const extension of extensions) {
+    await Promise.resolve(extension(...args))
+      .catch(e => console.error(e))
+  }
+}
