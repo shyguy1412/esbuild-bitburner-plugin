@@ -138,7 +138,7 @@ export class RemoteApiServer extends WebSocketServer {
           server,
           content
         })
-      ));
+      )).catch(e => console.error(e));
 
       // console.log(filePath);
 

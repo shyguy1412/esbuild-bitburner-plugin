@@ -71,6 +71,7 @@ export class RemoteFileMirror {
 
   async compareCacheToRemote() {
     const files = await this.getAllServerFiles();
+    if (!files) return;
     return this.compareFilesToCache(files);
   }
 
@@ -78,11 +79,14 @@ export class RemoteFileMirror {
     const files: Record<string, string> = {};
 
     for (const server of this.servers) {
-      const serverFiles = (await RemoteFileMirror.remoteApi.getAllFiles(server)).result;
+      const serverFiles = await RemoteFileMirror.remoteApi.getAllFiles(server)
+        .catch(e => console.log(e));
+
+      if (!serverFiles) return;
 
       if (!serverFiles) continue;
 
-      for (const { filename, content } of serverFiles) {
+      for (const { filename, content } of serverFiles.result) {
         files[`${server}://${filename}`] = content;
       }
 
@@ -113,75 +117,78 @@ export class RemoteFileMirror {
           })
         );
       }));
-    }));
+    })).catch(e => console.log(e));
   }
 
   async syncWithRemote() {
     if (this.syncing) return;
     this.syncing = true;
-    const files = await this.getAllServerFiles();
+    await (async () => { //wrap in async ifee to gurantee syncing is false after function return
 
-    const { mod: filesToWrite, rem: filesToRemove } = this.compareFilesToCache(files);
+      const files = await this.getAllServerFiles();
+      if (!files) return;
+      const { mod: filesToWrite, rem: filesToRemove } = this.compareFilesToCache(files);
 
-    this.writeToFilesCache(files);
+      this.writeToFilesCache(files);
 
-    const diff = { ...filesToWrite, ...filesToRemove }; //For output formatting only
+      const diff = { ...filesToWrite, ...filesToRemove }; //For output formatting only
 
-    const logger = createLogBatch();
-    if (Object.keys(diff).length != 0)
-      logger.log(`Remote change detected, syncing files with [${Object
-        .keys(diff)
-        .map(k => k.split('://', 2)[0])
-        .filter((el, i, arr) => i == arr.indexOf(el))
-        .join(', ')}]`
-      );
+      const logger = createLogBatch();
+      if (Object.keys(diff).length != 0)
+        logger.log(`Remote change detected, syncing files with [${Object
+          .keys(diff)
+          .map(k => k.split('://', 2)[0])
+          .filter((el, i, arr) => i == arr.indexOf(el))
+          .join(', ')}]`
+        );
 
-    // if (Object.keys(filesToRemove).length > 0 || Object.keys(filesToWrite).length > 0) {
-    //   this.logger.log({
-    //     filesToWrite,
-    //     filesToRemove,
-    //   }, Object.keys(diff).length);
-    // }
-
-    for (const file in filesToWrite) {
-      const content = filesToWrite[file];
-      const filePath = path.join(this.targetPath, file.replace(/:\/\//, '/'));
-
-      if (!pathExists(path.dirname(filePath)))
-        await fs.mkdir(path.dirname(filePath), { recursive: true });
-
-      await fs.writeFile(filePath, content);
-      logger.log(`Wrote file ${file} to ${filePath}`);
-    }
-
-    logger.dispatch();
-
-    for (const file in filesToRemove) {
-      delete this.fileCache[file];
-
-      const filePath = path.join(this.targetPath, file.replace(/:\/\//, '/'));
-
-      if (!pathExists(filePath))
-        continue;
-
-      await fs.rm(filePath);
-
-      //!BAD this doesnt get the dir path of the path but just the name
-      //TODO dont delete if its the mirror root
-      // if ((await fs.readdir(path.dirname(filePath))).length == 0) {
-      //   await fs.rmdir(path.dirname(filePath));
+      // if (Object.keys(filesToRemove).length > 0 || Object.keys(filesToWrite).length > 0) {
+      //   this.logger.log({
+      //     filesToWrite,
+      //     filesToRemove,
+      //   }, Object.keys(diff).length);
       // }
 
-      logger.log(`Deleted file ${file}`);
-    }
+      for (const file in filesToWrite) {
+        const content = filesToWrite[file];
+        const filePath = path.join(this.targetPath, file.replace(/:\/\//, '/'));
 
-    if (Object.keys(filesToRemove).length > 0 || Object.keys(filesToWrite).length > 0) {
-      logger.log();
-    }
+        if (!pathExists(path.dirname(filePath)))
+          await fs.mkdir(path.dirname(filePath), { recursive: true });
 
-    logger.dispatch();
+        await fs.writeFile(filePath, content);
+        logger.log(`Wrote file ${file} to ${filePath}`);
+      }
 
-    this.syncing = false;
+      logger.dispatch();
+
+      for (const file in filesToRemove) {
+        delete this.fileCache[file];
+
+        const filePath = path.join(this.targetPath, file.replace(/:\/\//, '/'));
+
+        if (!pathExists(filePath))
+          continue;
+
+        await fs.rm(filePath);
+
+        //!BAD this doesnt get the dir path of the path but just the name
+        //TODO dont delete if its the mirror root
+        // if ((await fs.readdir(path.dirname(filePath))).length == 0) {
+        //   await fs.rmdir(path.dirname(filePath));
+        // }
+
+        logger.log(`Deleted file ${file}`);
+      }
+
+      if (Object.keys(filesToRemove).length > 0 || Object.keys(filesToWrite).length > 0) {
+        logger.log();
+      }
+
+      logger.dispatch();
+
+      // this.syncing = false;
+    })().finally(() => this.syncing = false);
   }
 
   watch() {
@@ -216,7 +223,7 @@ export class RemoteFileMirror {
 
       if (deleted && !file) return; //File is already deleted
       if (!deleted && file?.result == (await fs.readFile(sanitizedFilePath)).toString('utf8')) return; //file hasnt changed
-      
+
       const logger = createLogBatch();
       logger.log(`Local change detected, syncing files with [${remoteServer}]`);
       if (deleted) {
