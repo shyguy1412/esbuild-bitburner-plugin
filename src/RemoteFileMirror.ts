@@ -123,7 +123,7 @@ export class RemoteFileMirror {
   async syncWithRemote() {
     if (this.syncing) return;
     this.syncing = true;
-    await (async () => { //wrap in async ifee to gurantee syncing is false after function return
+    await (async () => { //wrap in async iife to gurantee syncing is false after function return
 
       const files = await this.getAllServerFiles();
       if (!files) return;
