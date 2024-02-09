@@ -56,6 +56,7 @@ export type BitburnerPluginOptions = Partial<{
     afterBuild?: (remoteAPI: RemoteApiServer) => void | Promise<void>;
   }[];
 }>;
+
 export type PluginExtension = NonNullable<BitburnerPluginOptions['extensions']>[number];
 export type { RemoteApiServer, RemoteFileMirror };
 
@@ -115,7 +116,8 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
       if (!opts.distribute) return;
 
       for (const path in opts.distribute) {
-        remoteAPI.distribute(path, ...opts.distribute[path]);
+        const dispose = remoteAPI.distribute(path, ...opts.distribute[path]);
+        remoteAPI.addListener('close', () => dispose());
       }
     });
 
