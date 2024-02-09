@@ -166,9 +166,11 @@ export class RemoteFileMirror {
 
       await fs.rm(filePath);
 
-      if ((await fs.readdir(path.dirname(filePath))).length == 0) {
-        await fs.rmdir(path.dirname(filePath));
-      }
+      //!BAD this doesnt get the dir path of the path but just the name
+      //TODO dont delete if its the mirror root
+      // if ((await fs.readdir(path.dirname(filePath))).length == 0) {
+      //   await fs.rmdir(path.dirname(filePath));
+      // }
 
       logger.log(`Deleted file ${file}`);
     }
