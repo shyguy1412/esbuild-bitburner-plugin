@@ -16,11 +16,19 @@ export function createLogBatch(): LogBatcher {
       return this;
     },
     error(...messages: string[]) {
-      this.logs.push(formatMessagesSync(messages.map(text => ({ text })), { kind: 'error', color: true }));
+      this.logs.push(formatMessagesSync(
+        messages.map(text => ({ text })),
+        { kind: 'error', color: true }
+      ).map(message => message.trimEnd())
+      );
       return this;
     },
     warn(...messages: string[]) {
-      this.logs.push(formatMessagesSync(messages.map(text => ({ text })), { kind: 'warning', color: true }));
+      this.logs.push(formatMessagesSync(
+        messages.map(text => ({ text })),
+        { kind: 'warning', color: true }
+      ).map(message => message.trimEnd())
+      );
       return this;
     },
     dispatch() {

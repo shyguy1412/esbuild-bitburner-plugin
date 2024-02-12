@@ -185,10 +185,9 @@ export class RemoteFileMirror {
         logger.log();
       }
 
-      
       // this.syncing = false;
-    } catch (e:any) {
-      logger.error(e.error ?? JSON.stringify(e))
+    } catch (e: any) {
+      logger.error(e.error ?? JSON.stringify(e));
     } finally {
       logger.dispatch();
       this.syncing = false;
@@ -235,19 +234,10 @@ export class RemoteFileMirror {
           filename: remotePath,
           server: remoteServer
         })
+          .then(() => logger.log(`Deleted file ${remoteServer}://${remotePath}`))
           .catch(e => logger.error(`${e.error ?? JSON.stringify(e)} (${remoteServer}://${remotePath})`));
 
         delete this.fileCache[`${remoteServer}://${remotePath}`];
-
-
-        //!BAD this doesnt get the dir path of the path but just the name
-        //TODO dont delete if its the mirror root
-        // if (pathExists(path.dirname(sanitizedFilePath)) && (await fs.readdir(path.dirname(sanitizedFilePath))).length == 0) {
-        //   await fs.rmdir(path.dirname(sanitizedFilePath));
-        // }
-
-        logger.log(`Deleted file ${remoteServer}://${remotePath}`);
-
       } else {
 
         const content = (await fs.readFile(sanitizedFilePath)).toString('utf8');
@@ -257,10 +247,10 @@ export class RemoteFileMirror {
           server: remoteServer,
           content
         })
+          .then(() => logger.log(`Wrote file ${sanitizedFilePath} to ${remoteServer}://${remotePath}`))
           .catch(e => logger.error(e.error ?? JSON.stringify(e)));
 
         this.writeToFilesCache({ [`${remoteServer}://${remotePath}`]: content });
-        logger.log(`Wrote file ${sanitizedFilePath} to ${remoteServer}://${remotePath}`);
       }
 
       logger.log().dispatch();

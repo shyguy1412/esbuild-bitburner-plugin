@@ -82,7 +82,7 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
         if (extension)
           //TS struggles to understand that extension is the right type
           //since this is iterating over keys, this is the best I can do for now 
-          prev[key as keyof PluginExtension].push(extension as any)
+          prev[key as keyof PluginExtension].push(extension as any);
       }
       return prev;
     }, {
@@ -174,7 +174,7 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
       startTime = Date.now();
       if (existsSync(outdir))
         await fs.rm(outdir, { recursive: true });
-      await runExtensions(extensions.beforeBuild)
+      await runExtensions(extensions.beforeBuild);
     });
 
     pluginBuild.onResolve({ filter: /^react(-dom)?$/ }, (opts) => {
@@ -217,63 +217,76 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
     pluginBuild.onEnd(async (result) => {
       if (result.errors.length != 0) return;
       if (queued) return;
+      const logger = createLogBatch();
+      try {
 
-      const endTime = Date.now();
-      if (!remoteAPI.connection || !remoteAPI.connection.connected) {
-        queued = true;
-        console.log('Build successful, waiting for client to connect');
-        await new Promise<void>(resolve => {
-          remoteAPI.prependListener('client-connected', () => {
-            console.log('Client connected');
-            resolve();
+        const endTime = Date.now();
+        if (!remoteAPI.connection || !remoteAPI.connection.connected) {
+          queued = true;
+          console.log('Build successful, waiting for client to connect');
+          await new Promise<void>(resolve => {
+            remoteAPI.prependListener('client-connected', () => {
+              console.log('Client connected');
+              resolve();
+            });
           });
-        });
-      }
+        }
 
-      await runExtensions(extensions.afterBuild, remoteAPI);
+        await runExtensions(extensions.afterBuild, remoteAPI);
 
-      const files = (await fs.readdir(outdir, { recursive: true, withFileTypes: true }))
-        .filter(file => file.isFile())
-        .map(file => ({
-          name: file.name,
-          path: file.path.replaceAll('\\', '/').replace(/^.*?\//, '') // rebase path
-        }))
-        .map(file => ({
-          server: file.path.split('/')[0],
-          filename: `${file.path}/${file.name}`.replace(/^.*?\//, ''),
-          path: `${outdir}/${file.path}/${file.name}`
-        }));
+        const rawFiles = (await fs.readdir(outdir, { recursive: true, withFileTypes: true }))
+          .filter(file => file.isFile())
+          .map(file => ({
+            name: file.name,
+            path: file.path.replaceAll('\\', '/').replace(/^.*?\//, '') // rebase path
+          }))
+          .map(file => ({
+            server: file.path.split('/')[0],
+            filename: `${file.path}/${file.name}`.replace(/^.*?\//, ''),
+            path: `${outdir}/${file.path}/${file.name}`
+          }));
 
-      if (files.length == 0) return;
+        const validServers = await rawFiles.reduce(async (prev, {server}) => {
+          return prev.then(async prev => {
+            if (prev[server]) return prev;
+            prev[server] = await remoteAPI.getFileNames(server).then(_ => true).catch(_ => false);
+            if(!prev[server])logger.warn(`Invalid server '${server}': ignoring files to be pushed to '${server}'`)
+            return prev;
+          });
+        }, Promise.resolve({} as Record<string, boolean>));
 
-      await Promise.all(
-        files.map(async ({ filename, server, path }) => remoteAPI.pushFile({
+        const files = rawFiles.filter(f => validServers[f.server]);
+
+        await Promise.all(
+          files.map(async ({ filename, server, path }) => remoteAPI.pushFile({
+            filename,
+            server,
+            content: (await fs.readFile(path)).toString('utf8')
+          }))
+        );
+
+        const filesWithRAM = await Promise.all(files.map(async ({ filename, server }) => ({
           filename,
           server,
-          content: (await fs.readFile(path)).toString('utf8')
-        }))
-      );
+          cost: (await remoteAPI.calculateRAM({ filename, server })).result
+        })));
 
-      const filesWithRAM = await Promise.all(files.map(async ({ filename, server }) => ({
-        filename,
-        server,
-        cost: (await remoteAPI.calculateRAM({ filename, server })).result
-      })));
+        const formatOutputFiles = (files: typeof filesWithRAM) => {
+          return files.map(file => `  \x1b[33m•\x1b[0m ${file.server}://${file.filename} \x1b[32mRAM: ${file.cost}GB\x1b[0m`);
+        };
 
-      const formatOutputFiles = (files: typeof filesWithRAM) => {
-        return files.map(file => `  \x1b[33m•\x1b[0m ${file.server}://${file.filename} \x1b[32mRAM: ${file.cost}GB\x1b[0m`);
-      };
-
-      queued = false;
-
-      console.log();
-      console.log(formatOutputFiles(filesWithRAM).join('\n'));
-      console.log();
-      console.log(`⚡ \x1b[32mDone in \x1b[33m${endTime - startTime}ms\x1b[0m`);
-      console.log();
-
+        logger.dispatch();
+        console.log();
+        console.log(formatOutputFiles(filesWithRAM).join('\n'));
+        console.log();
+        console.log(`⚡ \x1b[32mDone in \x1b[33m${endTime - startTime}ms\x1b[0m`);
+        console.log();
+      } catch (e) {
+      } finally {
+        queued = false;
+        logger.dispatch();
+      }
     });
-
   }
 });
 
@@ -281,7 +294,7 @@ async function runExtensions<T extends (...args: any[]) => any>(extensions: T[],
   const logger = createLogBatch();
   for (const extension of extensions) {
     await Promise.resolve(extension(...args))
-      .catch(e => logger.error(e.error ?? JSON.stringify(e)))
+      .catch(e => logger.error(e.error ?? JSON.stringify(e)));
   }
   logger.dispatch();
 }
