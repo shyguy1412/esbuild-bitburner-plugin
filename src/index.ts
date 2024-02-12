@@ -60,10 +60,6 @@ export type BitburnerPluginOptions = Partial<{
 export type PluginExtension = NonNullable<BitburnerPluginOptions['extensions']>[number];
 export type { RemoteApiServer, RemoteFileMirror };
 
-//TODO Sanitize mirror and distribute paths for windows
-//TODO Print errors when extension throws an exception
-//!Crash when all files get deleted (mirror)
-//!Deleting all files from a server will delete the server folder (mirror)
 export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts = {}) => ({
   name: "BitburnerPlugin",
   async setup(pluginBuild) {
@@ -133,7 +129,7 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
       if (!opts.distribute) return;
 
       for (const path in opts.distribute) {
-        const dispose = remoteAPI.distribute(path, ...opts.distribute[path]);
+        const dispose = remoteAPI.distribute(path.replaceAll('\\', '/'), ...opts.distribute[path]);
         remoteAPI.addListener('close', () => dispose());
       }
     });
@@ -148,7 +144,7 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
           await fs.mkdir(path, { recursive: true });
 
         const servers = opts.mirror[path];
-        const mirror = remoteAPI.mirror(path, ...servers);
+        const mirror = remoteAPI.mirror(path.replaceAll('\\', '/'), ...servers);
         remoteAPI.addListener('close', () => mirror.dispose());
 
         mirrors.push(mirror);
