@@ -3,6 +3,7 @@ import { RemoteApiServer } from './RemoteApiServer';
 import fs from 'fs/promises';
 import { existsSync } from 'fs';
 import { RemoteFileMirror } from "./RemoteFileMirror";
+import { createLogBatch } from "./lib/log";
 
 export type BitburnerPluginOptions = Partial<{
   /**
@@ -277,8 +278,10 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
 });
 
 async function runExtensions<T extends (...args: any[]) => any>(extensions: T[], ...args: Parameters<T>) {
+  const logger = createLogBatch();
   for (const extension of extensions) {
     await Promise.resolve(extension(...args))
-      .catch(e => console.error(e))
+      .catch(e => logger.error(e.error ?? JSON.stringify(e)))
   }
+  logger.dispatch();
 }

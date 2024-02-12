@@ -123,6 +123,7 @@ export class RemoteFileMirror {
   async syncWithRemote() {
     if (this.syncing) return;
     this.syncing = true;
+    const logger = createLogBatch();
     try { //wrap in async iife to gurantee syncing is false after function return
 
       const files = await this.getAllServerFiles();
@@ -133,7 +134,6 @@ export class RemoteFileMirror {
 
       const diff = { ...filesToWrite, ...filesToRemove }; //For output formatting only
 
-      const logger = createLogBatch();
       if (Object.keys(diff).length != 0)
         logger.log(`Remote change detected, syncing files with [${Object
           .keys(diff)
@@ -185,12 +185,12 @@ export class RemoteFileMirror {
         logger.log();
       }
 
-      logger.dispatch();
-
+      
       // this.syncing = false;
-    } catch (e) {
-      console.error(e)
+    } catch (e:any) {
+      logger.error(e.error ?? JSON.stringify(e))
     } finally {
+      logger.dispatch();
       this.syncing = false;
     }
   }
@@ -234,11 +234,17 @@ export class RemoteFileMirror {
         await RemoteFileMirror.remoteApi.deleteFile({
           filename: remotePath,
           server: remoteServer
-        });
+        })
+          .catch(e => logger.error(`${e.error ?? JSON.stringify(e)} (${remoteServer}://${remotePath})`));
 
-        if (pathExists(path.dirname(sanitizedFilePath)) && (await fs.readdir(path.dirname(sanitizedFilePath))).length == 0) {
-          await fs.rmdir(path.dirname(sanitizedFilePath));
-        }
+        delete this.fileCache[`${remoteServer}://${remotePath}`];
+
+
+        //!BAD this doesnt get the dir path of the path but just the name
+        //TODO dont delete if its the mirror root
+        // if (pathExists(path.dirname(sanitizedFilePath)) && (await fs.readdir(path.dirname(sanitizedFilePath))).length == 0) {
+        //   await fs.rmdir(path.dirname(sanitizedFilePath));
+        // }
 
         logger.log(`Deleted file ${remoteServer}://${remotePath}`);
 
@@ -250,7 +256,8 @@ export class RemoteFileMirror {
           filename: remotePath,
           server: remoteServer,
           content
-        });
+        })
+          .catch(e => logger.error(e.error ?? JSON.stringify(e)));
 
         this.writeToFilesCache({ [`${remoteServer}://${remotePath}`]: content });
         logger.log(`Wrote file ${sanitizedFilePath} to ${remoteServer}://${remotePath}`);
