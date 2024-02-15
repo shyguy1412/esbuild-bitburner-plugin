@@ -35,14 +35,14 @@ export type BitburnerPluginOptions = Partial<{
    * All the listed servers will be mirrored into that directory.  
    */
   mirror: {
-    [path: string]: string[];
+    [path: string]: string[] | 'all';
   };
   /**
    * Use this to map a local directory to multiple servers.  
    * All files in that directory will be uploaded to all of the listed servers.  
    */
   distribute: {
-    [path: string]: string[];
+    [path: string]: string[] | 'all';
   };
   /**
    * A list of extensions for the Plugin to supplement and customize features.
@@ -130,7 +130,12 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
       if (!opts.distribute) return;
 
       for (const path in opts.distribute) {
-        const dispose = remoteAPI.distribute(path.replaceAll('\\', '/'), ...opts.distribute[path]);
+        const distribute = opts.distribute[path];
+
+        const dispose = distribute == 'all' ?
+          remoteAPI.distribute(path.replaceAll('\\', '/'), distribute) :
+          remoteAPI.distribute(path.replaceAll('\\', '/'), opts.distribute[path]);
+
         remoteAPI.addListener('close', () => dispose());
       }
     });
@@ -145,7 +150,7 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
           await fs.mkdir(path, { recursive: true });
 
         const servers = opts.mirror[path];
-        const mirror = remoteAPI.mirror(path.replaceAll('\\', '/'), ...servers);
+        const mirror = await remoteAPI.mirror(path.replaceAll('\\', '/'), servers);
         remoteAPI.addListener('close', () => mirror.dispose());
 
         mirrors.push(mirror);
@@ -246,11 +251,11 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
             path: `${outdir}/${file.path}/${file.name}`
           }));
 
-        const validServers = await rawFiles.reduce(async (prev, {server}) => {
+        const validServers = await rawFiles.reduce(async (prev, { server }) => {
           return prev.then(async prev => {
             if (prev[server]) return prev;
             prev[server] = await remoteAPI.getFileNames(server).then(_ => true).catch(_ => false);
-            if(!prev[server])logger.warn(`Invalid server '${server}': ignoring files to be pushed to '${server}'`)
+            if (!prev[server]) logger.warn(`Invalid server '${server}': ignoring files to be pushed to '${server}'`);
             return prev;
           });
         }, Promise.resolve({} as Record<string, boolean>));

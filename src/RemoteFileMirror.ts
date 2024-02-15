@@ -10,24 +10,38 @@ import { createLogBatch } from './lib/log';
 export class RemoteFileMirror {
   static remoteApi: RemoteApiServer;
 
-  servers: string[];
-  targetPath: string;
+  servers!: string[];
+  targetPath!: string;
   fileCache: Record<string, string> = {};
   syncing = false;
   remotePollTimeout: NodeJS.Timeout | undefined;
   fileWatcher: FSWatcher | undefined;
-  options: BitburnerPluginOptions;
+  options!: BitburnerPluginOptions;
 
-  constructor(targetPath: string, servers: string[], options: BitburnerPluginOptions) {
+  static async create(targetPath: string, servers: 'all' | string[], options: BitburnerPluginOptions) {
+    const mirror = new RemoteFileMirror();
+
+    mirror.servers = servers == 'all' ?
+      await RemoteFileMirror.remoteApi.getAllServers()
+        .then((r) => (JSON.parse(r.result) as any[]).filter(s => s.hasAdminRights).map(s => s.hostname as string))
+        .catch(e => {
+          console.error(e);
+          createLogBatch().error(JSON.stringify(e), `\nFailed to initilize file mirror (${targetPath})`).dispatch();
+          return [];
+        }) :
+      servers;
+
+    mirror.targetPath = targetPath;
+    mirror.options = options;
+    console.log(`Creating mirror [${mirror.servers.join(', ')}] => ${targetPath}`);
+
+    return mirror;
+  }
+
+  constructor() {
     if (!RemoteFileMirror.remoteApi) {
       throw new Error('Assign remoteAPI before instantiating');
     }
-
-    this.targetPath = targetPath;
-    this.servers = servers;
-    this.options = options;
-
-    console.log(`Creating mirror [${servers.join(', ')}] => ${targetPath}`);
   }
 
   async initFileCache() {

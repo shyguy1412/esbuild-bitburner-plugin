@@ -5,6 +5,7 @@ import { watch as watchDirectory } from 'chokidar';
 import { server as WebSocketServer, connection, type request } from 'websocket';
 import { BitburnerPluginOptions } from '.';
 import { AddressInfo } from 'net';
+import { createLogBatch } from './lib/log';
 
 // declare class RemoteApiServer extends WebSocketServer {
 //   createMessageId(): number;
@@ -117,19 +118,25 @@ export class RemoteApiServer extends WebSocketServer {
     });
   }
 
-  mirror(targetPath: string, ...servers: string[]) {
-    return new RemoteFileMirror(targetPath, servers, this.options);
+  mirror(targetPath: string, servers: 'all' | string[]) {
+    return RemoteFileMirror.create(targetPath, servers, this.options);
   }
 
-  distribute(targetPath: string, ...servers: string[]) {
+  distribute(targetPath: string, to: 'all' | string[]) {
     //listen to new files in targetPath
     const distributor = watchDirectory(targetPath, { ignoreInitial: true, usePolling: this.options.usePolling, interval: this.options.pollingInterval });
     distributor.on('all', async (e, filePath) => {
       if (e != 'add' && e != 'change' || !(await fs.stat(filePath)).isFile()) return;
-      
+
+      const logger = createLogBatch();
       const santizedFilePath = filePath.replaceAll('\\', '/'); //deal with windows
       const content = (await fs.readFile(filePath)).toString('utf8');
-      
+      const servers = Array.isArray(to) ? to : await this.getAllServers()
+        .then((r) => (JSON.parse(r.result) as any[]).filter(s => s.hasAdminRights).map(s => s.hostname as string))
+        .catch(e => logger.error(e.error ?? JSON.stringify(e)).dispatch());
+
+      if (!servers) return;
+
       console.log(`Distributing file ${filePath} to [${servers.join(', ')}]`);
 
       await Promise.all(servers.map(server =>
@@ -138,13 +145,9 @@ export class RemoteApiServer extends WebSocketServer {
           server,
           content
         })
-      )).catch(e => console.error(e));
-
-      // console.log(filePath);
-
+      )).catch(e => logger.error(e.error ?? JSON.stringify(e)).dispatch());
     });
-    //copy files to servers
-    // console.log(distributor);
+
     return () => {
       distributor.close();
     };
