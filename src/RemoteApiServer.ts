@@ -7,36 +7,6 @@ import { BitburnerPluginOptions } from '.';
 import { AddressInfo } from 'net';
 import { createLogBatch } from './lib/log';
 
-// declare class RemoteApiServer extends WebSocketServer {
-//   createMessageId(): number;
-//   listen(port: number, callback: () => void): void;
-//   mirror(targetPath: string, ...servers: string[]): RemoteFileMirror;
-//   distribute(targetPath: string, ...servers: string[]): RemoteFileMirror;
-//   write(obj: any): Promise<any>;
-//   getDefinitionFile(): Promise<any>;
-//   pushFile({ filename, content, server }: {
-//     filename: string;
-//     content: string;
-//     server: string;
-//   }): Promise<any>;
-//   getFile({ filename, server }: {
-//     filename: string;
-//     server: string;
-//   }): Promise<any>;
-//   getFileNames(server: string): Promise<any>;
-//   getAllFiles(server: string): Promise<any>;
-//   deleteFile({ filename, server }: {
-//     filename: string;
-//     server: string;
-//   }): Promise<any>;
-//   calculateRAM({ filename, server }: {
-//     filename: string;
-//     server: string;
-//   }): Promise<any>;
-//   getAllServers(): Promise<any>;
-//   #private;
-// }
-
 function isUtf8(event: any): event is { type: 'utf8'; } {
   return event.type === 'utf8';
 }
