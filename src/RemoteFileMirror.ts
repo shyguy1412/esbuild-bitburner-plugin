@@ -225,7 +225,7 @@ export class RemoteFileMirror {
       if (this.syncing) return;
 
       const deleted = !pathExists(filePath);
-      if ((!deleted && !(await fs.stat(filePath)).isFile()) || e == 'add')
+      if ((!deleted && !(await fs.stat(filePath)).isFile()))
         return;
 
       const sanitizedFilePath = filePath.replaceAll('\\', '/');
