@@ -23,7 +23,7 @@ export class RemoteFileMirror {
 
     mirror.servers = servers == 'all' ?
       await RemoteFileMirror.remoteApi.getAllServers()
-        .then((r) => (JSON.parse(r.result) as any[]).filter(s => s.hasAdminRights).map(s => s.hostname as string))
+        .then(({ result }) => (result as any[]).filter(s => s.hasAdminRights).map(s => s.hostname as string))
         .catch(e => {
           console.error(e);
           createLogBatch().error(JSON.stringify(e), `\nFailed to initilize file mirror (${targetPath})`).dispatch();

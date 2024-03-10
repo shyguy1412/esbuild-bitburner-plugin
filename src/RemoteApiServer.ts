@@ -102,7 +102,7 @@ export class RemoteApiServer extends WebSocketServer {
       const santizedFilePath = filePath.replaceAll('\\', '/'); //deal with windows
       const content = (await fs.readFile(filePath)).toString('utf8');
       const servers = Array.isArray(to) ? to : await this.getAllServers()
-        .then((r) => (JSON.parse(r.result) as any[]).filter(s => s.hasAdminRights).map(s => s.hostname as string))
+        .then(({ result }) => (result as any[]).filter(s => s.hasAdminRights).map(s => s.hostname as string))
         .catch(e => logger.error(e.error ?? JSON.stringify(e)).dispatch());
 
       if (!servers) return;
