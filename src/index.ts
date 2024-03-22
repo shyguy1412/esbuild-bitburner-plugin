@@ -35,14 +35,14 @@ export type BitburnerPluginOptions = Partial<{
    * All the listed servers will be mirrored into that directory.  
    */
   mirror: {
-    [path: string]: string[] | 'all';
+    [path: string]: string[] | 'all' | 'own' | 'other';
   };
   /**
    * Use this to map a local directory to multiple servers.  
    * All files in that directory will be uploaded to all of the listed servers.  
    */
   distribute: {
-    [path: string]: string[] | 'all';
+    [path: string]: string[] | 'all' | 'own' | 'other';
   };
   /**
    * A list of extensions for the Plugin to supplement and customize features.

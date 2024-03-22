@@ -88,11 +88,11 @@ export class RemoteApiServer extends WebSocketServer {
     });
   }
 
-  mirror(targetPath: string, servers: 'all' | string[]) {
+  mirror(targetPath: string, servers: NonNullable<BitburnerPluginOptions['mirror']>[string]) {
     return RemoteFileMirror.create(targetPath, servers, this.options);
   }
 
-  distribute(targetPath: string, to: 'all' | string[]) {
+  distribute(targetPath: string, to: NonNullable<BitburnerPluginOptions['mirror']>[string]) {
     //listen to new files in targetPath
     const distributor = watchDirectory(targetPath, { ignoreInitial: true, usePolling: this.options.usePolling, interval: this.options.pollingInterval });
     distributor.on('all', async (e, filePath) => {
@@ -101,21 +101,29 @@ export class RemoteApiServer extends WebSocketServer {
       const logger = createLogBatch();
       const santizedFilePath = filePath.replaceAll('\\', '/'); //deal with windows
       const content = (await fs.readFile(filePath)).toString('utf8');
-      const servers = Array.isArray(to) ? to : await this.getAllServers()
-        .then(({ result }) => (result as any[]).filter(s => s.hasAdminRights).map(s => s.hostname as string))
-        .catch(e => logger.error(e.error ?? JSON.stringify(e)).dispatch());
+      const servers = typeof to == 'string' ?
+        await RemoteFileMirror.remoteApi.getAllServers()
+          .then(({ result }) => (result as any[])
+            .filter(s => s.hasAdminRights && (to == 'own' ? s.purchasedByPlayer : to == 'other' ? !s.purchasedByPlayer : true))
+            .map(s => s.hostname as string))
+          .catch(e => {
+            console.error(e);
+            createLogBatch().error(JSON.stringify(e), `\nFailed to get distribution servers (${targetPath})`).dispatch();
+            return [];
+          }) :
+        to;
 
       if (!servers) return;
 
       console.log(`Distributing file ${filePath} to [${servers.join(', ')}]`);
 
-      await Promise.all(servers.map(server =>
+      await Promise.allSettled(servers.map(server =>
         this.pushFile({
           filename: santizedFilePath.replace(targetPath, ''), //strip basepath
           server,
           content
         })
-      )).catch(e => logger.error(e.error ?? JSON.stringify(e)).dispatch());
+      )).catch(e => logger.warn(e.error ?? JSON.stringify(e)).dispatch());
     });
 
     return () => {

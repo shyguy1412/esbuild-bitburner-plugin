@@ -18,12 +18,14 @@ export class RemoteFileMirror {
   fileWatcher: FSWatcher | undefined;
   options!: BitburnerPluginOptions;
 
-  static async create(targetPath: string, servers: 'all' | string[], options: BitburnerPluginOptions) {
+  static async create(targetPath: string, servers: NonNullable<BitburnerPluginOptions['mirror']>[string], options: BitburnerPluginOptions) {
     const mirror = new RemoteFileMirror();
 
-    mirror.servers = servers == 'all' ?
+    mirror.servers = typeof servers == 'string' ?
       await RemoteFileMirror.remoteApi.getAllServers()
-        .then(({ result }) => (result as any[]).filter(s => s.hasAdminRights).map(s => s.hostname as string))
+        .then(({ result }) => (result as any[])
+          .filter(s => s.hasAdminRights && (servers == 'own' ? s.purchasedByPlayer : servers == 'other' ? !s.purchasedByPlayer : true))
+          .map(s => s.hostname as string))
         .catch(e => {
           console.error(e);
           createLogBatch().error(JSON.stringify(e), `\nFailed to initilize file mirror (${targetPath})`).dispatch();
