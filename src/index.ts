@@ -192,11 +192,11 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
     pluginBuild.onLoad({ filter: /^react(-dom)?$/, namespace: 'react' }, (opts) => {
       if (opts.path == 'react')
         return {
-          contents: 'module.exports = window.React'
+          contents: 'module.exports = React'
         };
       else if (opts.path == 'react-dom')
         return {
-          contents: 'module.exports = window.ReactDOM'
+          contents: 'module.exports = ReactDOM'
         };
     });
 
