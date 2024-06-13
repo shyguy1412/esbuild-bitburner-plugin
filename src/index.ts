@@ -132,9 +132,7 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
       for (const path in opts.distribute) {
         const distribute = opts.distribute[path];
 
-        const dispose = distribute == 'all' ?
-          remoteAPI.distribute(path.replaceAll('\\', '/'), distribute) :
-          remoteAPI.distribute(path.replaceAll('\\', '/'), opts.distribute[path]);
+        const dispose = remoteAPI.distribute(path.replaceAll('\\', '/'), distribute);
 
         remoteAPI.addListener('close', () => dispose());
       }
