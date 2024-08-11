@@ -1,4 +1,4 @@
-import { Plugin, formatMessages } from "esbuild";
+import { BuildOptions, BuildResult, Plugin, formatMessages } from "esbuild";
 import { RemoteApiServer } from './RemoteApiServer';
 import fs from 'fs/promises';
 import { existsSync } from 'fs';
@@ -56,6 +56,10 @@ export type BitburnerPluginOptions = Partial<{
     beforeBuild?: () => void | Promise<void>;
     afterBuild?: (remoteAPI: RemoteApiServer) => void | Promise<void>;
   }[];
+  /**
+   * Enable remote debugging. This will automatically set the right esbuild options if they arent set already.
+   */
+  remoteDebugging: boolean;
 }>;
 
 export type PluginExtension = NonNullable<BitburnerPluginOptions['extensions']>[number];
@@ -73,6 +77,12 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
     if (typeof opts != 'object') {
       throw new TypeError('Expected options to be an object');
     }; //Ensure opts is an object
+
+    if (opts.remoteDebugging) {
+      pluginBuild.initialOptions.sourcemap ??= 'inline';
+      pluginBuild.initialOptions.sourcesContent ??= false;
+      pluginBuild.initialOptions.sourceRoot ??= '/';
+    }
 
     const { outdir } = pluginBuild.initialOptions;
 
@@ -235,6 +245,8 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
           });
         }
 
+        if (opts.remoteDebugging) fixSourceMappings(pluginBuild.initialOptions.outdir!);
+
         await runExtensions(extensions.afterBuild, remoteAPI);
 
         const rawFiles = (await fs.readdir(outdir, { recursive: true, withFileTypes: true }))
@@ -300,4 +312,41 @@ async function runExtensions<T extends (...args: any[]) => any>(extensions: T[],
       .catch(e => logger.error(e.error ?? JSON.stringify(e)));
   }
   logger.dispatch();
+}
+
+async function fixSourceMappings(outdir: string) {
+  const outputFiles = await fs.readdir(outdir, { recursive: true, withFileTypes: true })
+    .then(f => f.filter(f => f.isFile()));
+
+  const relativeSourceMapToAbsolute = (content: string) => {
+    if (!content) return content;
+    if (!content.includes("//# sourceMappingURL=")) {
+      return content;
+    }
+
+    // We assume the sourcemap comment is the last line of the file, which it should always be.
+    const [pretext, sourcemapText] = content.split("//# sourceMappingURL=data:application/json;base64,");
+    if (!sourcemapText) return content;
+
+    const sourcemap = JSON.parse(Buffer.from(sourcemapText, "base64").toString()) as { sources: string[]; };
+
+    sourcemap.sources = sourcemap.sources.map(source => {
+      // remap sources from `../../../servers/...` to be `servers/...` instead,
+      // so VSCode can properly map ingame files' sourcemaps to our scripts.
+      return source.startsWith(".") ?
+        source.replace(/(\.\.\/)*/, "./")
+        : source;
+    });
+
+    const newText = `${pretext}\n//# sourceMappingURL=data:application/json;base64,${Buffer.from(JSON.stringify(sourcemap)).toString("base64")}`;
+
+    return newText;
+  };
+
+  await Promise.all(
+    outputFiles.map(async file => fs.writeFile(
+      `${file.path}/${file.name}`,
+      relativeSourceMapToAbsolute(await fs.readFile(`${file.path}/${file.name}`, { encoding: 'utf8' }))
+    ))
+  ).catch(_ => console.log(_));
 }
