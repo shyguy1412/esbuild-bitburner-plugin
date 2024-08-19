@@ -22,7 +22,7 @@
   },
   "engines" : { 
     "node" : ">=20.0.0" 
-  }
+  },
   "homepage": "https://github.com/shyguy1412/esbuild-bitburner-plugin#readme",
   "devDependencies": {
     "@types/node": "^20.11.0",
