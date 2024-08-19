@@ -1,6 +1,6 @@
 {
   "name": "esbuild-bitburner-plugin",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "plugin to push files compiled by esbuild directly to bitburner using its remote API",
   "main": "build/index.js",
   "scripts": {
@@ -20,6 +20,9 @@
   "bugs": {
     "url": "https://github.com/shyguy1412/esbuild-bitburner-plugin/issues"
   },
+  "engines" : { 
+    "node" : ">=20.0.0" 
+  }
   "homepage": "https://github.com/shyguy1412/esbuild-bitburner-plugin#readme",
   "devDependencies": {
     "@types/node": "^20.11.0",
