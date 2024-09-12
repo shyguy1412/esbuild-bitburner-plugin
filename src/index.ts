@@ -245,7 +245,7 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
           });
         }
 
-        if (opts.remoteDebugging) fixSourceMappings(pluginBuild.initialOptions.outdir!);
+        if (opts.remoteDebugging) await fixSourceMappings(pluginBuild.initialOptions.outdir!);
 
         await runExtensions(extensions.afterBuild, remoteAPI);
 
