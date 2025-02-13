@@ -1,4 +1,4 @@
-import { BuildOptions, BuildResult, Plugin, formatMessages } from "esbuild";
+import { BuildOptions, BuildResult, Plugin, formatMessages, formatMessagesSync } from "esbuild";
 import { RemoteApiServer } from './RemoteApiServer';
 import fs from 'fs/promises';
 import { existsSync } from 'fs';
@@ -68,6 +68,8 @@ export type { RemoteApiServer, RemoteFileMirror };
 export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts = {}) => ({
   name: "BitburnerPlugin",
   async setup(pluginBuild) {
+
+    pluginBuild.initialOptions.metafile = true;
 
     const logLevel = pluginBuild.initialOptions.logLevel;
     if (!['verbose', 'debug'].includes(logLevel!)) {
@@ -207,6 +209,14 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
           contents: 'module.exports = ReactDOM'
         };
     });
+
+    pluginBuild.onEnd((result) => {
+      if(Object.keys(result.metafile?.inputs!).length == 0){
+        console.log(...formatMessagesSync([{
+          text: "esbuild recieved no entrypoints.\nThis tool will not work as expected without entrypoints."
+        }], {kind: "warning", color:true}))
+      }
+    })
 
     pluginBuild.onEnd(async (result) => {
       if (!result.errors.length && !result.warnings.length) return;
