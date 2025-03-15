@@ -1,4 +1,4 @@
-import { formatMessagesSync } from "esbuild";
+import { formatMessagesSync } from 'esbuild';
 
 export interface LogBatcher {
   logs: any[][];
@@ -16,18 +16,20 @@ export function createLogBatch(): LogBatcher {
       return this;
     },
     error(...messages: string[]) {
-      this.logs.push(formatMessagesSync(
-        messages.map(text => ({ text })),
-        { kind: 'error', color: true }
-      ).map(message => message.trimEnd())
+      this.logs.push(
+        formatMessagesSync(
+          messages.map((text) => ({ text })),
+          { kind: 'error', color: true },
+        ).map((message) => message.trimEnd()),
       );
       return this;
     },
     warn(...messages: string[]) {
-      this.logs.push(formatMessagesSync(
-        messages.map(text => ({ text })),
-        { kind: 'warning', color: true }
-      ).map(message => message.trimEnd())
+      this.logs.push(
+        formatMessagesSync(
+          messages.map((text) => ({ text })),
+          { kind: 'warning', color: true },
+        ).map((message) => message.trimEnd()),
       );
       return this;
     },
@@ -35,6 +37,6 @@ export function createLogBatch(): LogBatcher {
       while (this.logs.length) {
         console.log(...this.logs.shift()!);
       }
-    }
+    },
   };
 }
