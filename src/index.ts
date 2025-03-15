@@ -1,84 +1,74 @@
-import { BuildOptions, BuildResult, Plugin, formatMessages, formatMessagesSync } from "esbuild";
-import { RemoteApiServer } from './RemoteApiServer';
+import { formatMessages, Plugin, transform } from 'esbuild';
+
+import { RemoteApiServer } from './lib/RemoteApiServer';
+import { RemoteFileMirror } from './lib/RemoteFileMirror';
+import { createLogBatch } from './lib/log';
+import { compileProject, findCargoDir } from './lib/rust-compiler';
+
 import fs from 'fs/promises';
 import { existsSync } from 'fs';
-import { RemoteFileMirror } from "./RemoteFileMirror";
-import { createLogBatch } from "./lib/log";
+import path from 'path';
+import { reactPlugin } from './plugins/react';
+import { rustPlugin } from './plugins/rust';
+import { fixSourceMappings } from './plugins/debugging';
+import { loggingPlugin } from './plugins/logging';
+import { upload } from './lib/upload';
 
-export type BitburnerPluginOptions = Partial<{
-  /**
-   * This is the port the RemoteAPI will connect to.  
-   * Enter the same port inside your game options to connect to your editor.
-   */
-  port: number;
-  /**
-   * This is the path that the Netscript Definitions file will be placed at.
-   */
-  types: string;
-  /**
-   * Set this to true to poll the filessytem instead of using filesystem events.  
-   * This can fix issues when using WSL but having the project inside the Windows filesystem.
-   */
-  usePolling: boolean;
-  /**
-   * Sets the interval for the filesystem polling
-   * Only used when usePolling is set to true.  
-   */
-  pollingInterval: number;
-  /**
-   * Set this to true to push mirrored files on connect.  
-   * By default the file mirror pulls the ingame files on connect, overriding local files with the current ingame state.  
-   */
-  pushOnConnect: boolean;
-  /**
-   * Use this to map a local directory to a list of ingame servers.  
-   * All the listed servers will be mirrored into that directory.  
-   */
-  mirror: {
-    [path: string]: string[] | 'all' | 'own' | 'other';
-  };
-  /**
-   * Use this to map a local directory to multiple servers.  
-   * All files in that directory will be uploaded to all of the listed servers.  
-   */
-  distribute: {
-    [path: string]: string[] | 'all' | 'own' | 'other';
-  };
-  /**
-   * A list of extensions for the Plugin to supplement and customize features.
-   */
-  extensions: {
-    setup?: () => void | Promise<void>;
-
-    beforeConnect?: () => void | Promise<void>;
-    afterConnect?: (remoteAPI: RemoteApiServer) => void | Promise<void>;
-
-    beforeBuild?: () => void | Promise<void>;
-    afterBuild?: (remoteAPI: RemoteApiServer) => void | Promise<void>;
-  }[];
-  /**
-   * Enable remote debugging. This will automatically set the right esbuild options if they arent set already.
-   */
-  remoteDebugging: boolean;
-}>;
-
-export type PluginExtension = NonNullable<BitburnerPluginOptions['extensions']>[number];
 export type { RemoteApiServer, RemoteFileMirror };
 
-export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts = {}) => ({
-  name: "BitburnerPlugin",
+function parseExtensions(extensions: BitburnerPluginOptions['extensions'] = []) {
+  return extensions.reduce(
+    (prev, cur) => {
+      for (const key in prev) {
+        const extension = cur[key as keyof PluginExtension];
+        if (extension) {
+          //TS struggles to understand that extension is the right type
+          //since this is iterating over keys, this is the best I can do for now
+          prev[key as keyof PluginExtension].push(extension as any);
+        }
+      }
+      return prev;
+    },
+    {
+      setup: [],
+      beforeConnect: [],
+      afterConnect: [],
+      beforeBuild: [],
+      afterBuild: [],
+    } as {
+      [key in keyof Required<PluginExtension>]: NonNullable<
+        PluginExtension[key]
+      >[];
+    },
+  );
+}
+
+export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (
+  opts = {},
+) => ({
+  name: 'BitburnerPlugin',
   async setup(pluginBuild) {
+    const { outdir, logLevel } = pluginBuild.initialOptions;
 
-    pluginBuild.initialOptions.metafile = true;
+    if (!opts.port) {
+      throw new Error('No port provided');
+    }
 
-    const logLevel = pluginBuild.initialOptions.logLevel;
+    if (pluginBuild.initialOptions.write) {
+      throw new Error("BitburnerPlugin doesn't support 'write' mode");
+    }
+
+    if (!outdir) {
+      throw new Error('BitburnerPlugin requires the outdir option to be set');
+    }
+
     if (!['verbose', 'debug'].includes(logLevel!)) {
       pluginBuild.initialOptions.logLevel = 'silent';
     }
 
     if (typeof opts != 'object') {
       throw new TypeError('Expected options to be an object');
-    }; //Ensure opts is an object
+    } //Ensure opts is an object
 
     if (opts.remoteDebugging) {
       pluginBuild.initialOptions.sourcemap ??= 'inline';
@@ -86,24 +76,14 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
       pluginBuild.initialOptions.sourceRoot ??= '/';
     }
 
-    const { outdir } = pluginBuild.initialOptions;
+    pluginBuild.initialOptions.metafile = true;
+    pluginBuild.initialOptions.loader ??= {};
+    pluginBuild.initialOptions.loader['.wasm'] = 'binary';
 
-    const extensions = (opts.extensions ?? []).reduce((prev, cur) => {
-      for (const key in prev) {
-        const extension = cur[key as keyof PluginExtension];
-        if (extension)
-          //TS struggles to understand that extension is the right type
-          //since this is iterating over keys, this is the best I can do for now 
-          prev[key as keyof PluginExtension].push(extension as any);
-      }
-      return prev;
-    }, {
-      setup: [],
-      beforeConnect: [],
-      afterConnect: [],
-      beforeBuild: [],
-      afterBuild: [],
-    } as { [key in keyof Required<PluginExtension>]: NonNullable<PluginExtension[key]>[] });
+    // const wasmPackages: [string, string][] = [];
+    const extensions = parseExtensions(opts.extensions);
+
+    await runExtensions(extensions.setup);
 
     const remoteAPI = new RemoteApiServer(opts);
 
@@ -111,252 +91,81 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (opts =
       remoteAPI.shutDown();
     });
 
-    await runExtensions(extensions.setup);
-
-    if (!opts.port)
-      throw new Error('No port provided');
-
-    if (pluginBuild.initialOptions.write)
-      throw new Error("BitburnerPlugin doesn't support 'write' mode");
-
-    if (!outdir)
-      throw new Error("BitburnerPlugin requires the outdir option to be set");
+    await runExtensions(extensions.beforeConnect);
 
     remoteAPI.listen(opts.port, () => {
       console.log('✅ RemoteAPI Server listening on port ' + opts.port);
     });
 
-    await runExtensions(extensions.beforeConnect);
-
     remoteAPI.on('client-connected', async () => {
       await runExtensions(extensions.afterConnect, remoteAPI);
-    });
-
-    remoteAPI.on('client-connected', async () => {
-      if (!opts.types) return;
-      const types = await remoteAPI.getDefinitionFile();
-      await fs.writeFile(opts.types, types.result);
-    });
-
-    remoteAPI.on('client-connected', async () => {
-      if (!opts.distribute) return;
-
-      for (const path in opts.distribute) {
-        const distribute = opts.distribute[path];
-
-        const dispose = remoteAPI.distribute(path.replaceAll('\\', '/'), distribute);
-
-        remoteAPI.addListener('close', () => dispose());
-      }
-    });
-
-    remoteAPI.on('client-connected', async () => {
-      if (!opts.mirror) return;
-
-      const mirrors = [];
-
-      for (const path in opts.mirror) {
-        if (!existsSync(path))
-          await fs.mkdir(path, { recursive: true });
-
-        const servers = opts.mirror[path];
-        const mirror = await remoteAPI.mirror(path.replaceAll('\\', '/'), servers);
-        remoteAPI.addListener('close', () => mirror.dispose());
-
-        mirrors.push(mirror);
-      }
-
-      for (const mirror of mirrors) {
-        await mirror.initFileCache();
-      }
-
-      for (const mirror of mirrors) {
-        if (opts.pushOnConnect)
-          await mirror.pushAllFiles();
-        else
-          await mirror.syncWithRemote();
-      }
-
-      for (const mirror of mirrors) {
-        mirror.watch();
-      }
     });
 
     let queued = false;
     let startTime: number;
 
+    pluginBuild.onStart(() => runExtensions(extensions.beforeBuild));
+
     pluginBuild.onStart(async () => {
       startTime = Date.now();
-      if (existsSync(outdir))
+      // wasmPackages.length = 0;
+      if (existsSync(outdir)) {
         await fs.rm(outdir, { recursive: true });
-      await runExtensions(extensions.beforeBuild);
-    });
-
-    pluginBuild.onResolve({ filter: /^react(-dom)?$/ }, (opts) => {
-      return {
-        namespace: 'react',
-        path: opts.path,
-      };
-    });
-
-    pluginBuild.onLoad({ filter: /^react(-dom)?$/, namespace: 'react' }, (opts) => {
-      if (opts.path == 'react')
-        return {
-          contents: 'module.exports = React'
-        };
-      else if (opts.path == 'react-dom')
-        return {
-          contents: 'module.exports = ReactDOM'
-        };
-    });
-
-    pluginBuild.onEnd((result) => {
-      if(Object.keys(result.metafile?.inputs!).length == 0){
-        console.log(...formatMessagesSync([{
-          text: "esbuild recieved no entrypoints.\nThis tool will not work as expected without entrypoints."
-        }], {kind: "warning", color:true}))
       }
-    })
-
-    pluginBuild.onEnd(async (result) => {
-      if (!result.errors.length && !result.warnings.length) return;
-      if (['silent', 'verbose', 'debug'].includes(logLevel!)) return;
-
-      const warnings = await formatMessages(result.warnings, { kind: 'warning', color: true });
-      const errors = await formatMessages(result.errors, { kind: 'error', color: true });
-
-      while (warnings.length && logLevel != 'error') {
-        console.log(warnings.shift()?.trimEnd());
-        console.log();
-      }
-
-      while (errors.length) {
-        console.log(errors.shift()?.trimEnd());
-        console.log();
-      }
-
     });
+
+    reactPlugin(pluginBuild);
+    rustPlugin(pluginBuild);
+    loggingPlugin(pluginBuild);
 
     pluginBuild.onEnd(async (result) => {
       if (result.errors.length != 0) return;
       if (queued) return;
+
       const logger = createLogBatch();
-      try {
+      const endTime = Date.now();
 
-        const endTime = Date.now();
-        if (!remoteAPI.connection || !remoteAPI.connection.connected) {
-          queued = true;
-          console.log('Build successful, waiting for client to connect');
-          await new Promise<void>(resolve => {
-            remoteAPI.prependListener('client-connected', () => {
-              console.log('Client connected');
-              resolve();
-            });
-          });
-        }
-
-        if (opts.remoteDebugging) await fixSourceMappings(pluginBuild.initialOptions.outdir!);
-
-        await runExtensions(extensions.afterBuild, remoteAPI);
-
-        const rawFiles = (await fs.readdir(outdir, { recursive: true, withFileTypes: true }))
-          .filter(file => file.isFile())
-          .map(file => ({
-            name: file.name,
-            path: file.path.replaceAll('\\', '/').replace(/^.*?\//, '') // rebase path
-          }))
-          .map(file => ({
-            server: file.path.split('/')[0],
-            filename: `${file.path}/${file.name}`.replace(/^.*?\//, ''),
-            path: `${outdir}/${file.path}/${file.name}`
-          }));
-
-        const validServers = await rawFiles.reduce(async (prev, { server }) => {
-          return prev.then(async prev => {
-            if (prev[server]) return prev;
-            prev[server] = await remoteAPI.getFileNames(server).then(_ => true).catch(_ => false);
-            if (!prev[server]) logger.warn(`Invalid server '${server}': ignoring files to be pushed to '${server}'`);
-            return prev;
-          });
-        }, Promise.resolve({} as Record<string, boolean>));
-
-        const files = rawFiles.filter(f => validServers[f.server]);
-
-        await Promise.all(
-          files.map(async ({ filename, server, path }) => remoteAPI.pushFile({
-            filename,
-            server,
-            content: (await fs.readFile(path)).toString('utf8')
-          }))
-        );
-
-        const filesWithRAM = await Promise.all(files.map(async ({ filename, server }) => ({
-          filename,
-          server,
-          cost: (await remoteAPI.calculateRAM({ filename, server })).result
-        })));
-
-        const formatOutputFiles = (files: typeof filesWithRAM) => {
-          return files.map(file => `  \x1b[33m•\x1b[0m ${file.server}://${file.filename} \x1b[32mRAM: ${file.cost}GB\x1b[0m`);
-        };
-
-        logger.dispatch();
-        console.log();
-        console.log(formatOutputFiles(filesWithRAM).join('\n'));
-        console.log();
-        console.log(`⚡ \x1b[32mDone in \x1b[33m${endTime - startTime}ms\x1b[0m`);
-        console.log();
-      } catch (e) {
-      } finally {
-        queued = false;
-        logger.dispatch();
+      if (!remoteAPI.connection || !remoteAPI.connection.connected) {
+        queued = true;
+        console.log('Build successful, waiting for client to connect');
+        await remoteAPI.connected;
       }
+
+      if (opts.remoteDebugging) {
+        await fixSourceMappings(pluginBuild.initialOptions.outdir!);
+      }
+
+      await runExtensions(extensions.afterBuild, remoteAPI);
+
+      const filesWithRAM = await upload(outdir, remoteAPI);
+
+      const formatOutputFiles = (files: typeof filesWithRAM) => {
+        return files.map((file) =>
+          `  \x1b[33m•\x1b[0m ${file.server}://${file.filename} \x1b[32mRAM: ${file.cost}GB\x1b[0m`
+        );
+      };
+
+      logger.dispatch();
+      console.log();
+      console.log(formatOutputFiles(filesWithRAM).join('\n'));
+      console.log();
+      console.log(
+        `⚡ \x1b[32mDone in \x1b[33m${endTime - startTime}ms\x1b[0m`,
+      );
+      console.log();
+      queued = false;
     });
-  }
+  },
 });
 
-async function runExtensions<T extends (...args: any[]) => any>(extensions: T[], ...args: Parameters<T>) {
+async function runExtensions<T extends (...args: any[]) => any>(
+  extensions: T[],
+  ...args: Parameters<T>
+) {
   const logger = createLogBatch();
   for (const extension of extensions) {
     await Promise.resolve(extension(...args))
-      .catch(e => logger.error(e.error ?? JSON.stringify(e)));
+      .catch((e) => logger.error(e.error ?? JSON.stringify(e)));
   }
   logger.dispatch();
-}
-
-async function fixSourceMappings(outdir: string) {
-  const outputFiles = await fs.readdir(outdir, { recursive: true, withFileTypes: true })
-    .then(f => f.filter(f => f.isFile()));
-
-  const relativeSourceMapToAbsolute = (content: string) => {
-    if (!content) return content;
-    if (!content.includes("//# sourceMappingURL=")) {
-      return content;
-    }
-
-    // We assume the sourcemap comment is the last line of the file, which it should always be.
-    const [pretext, sourcemapText] = content.split("//# sourceMappingURL=data:application/json;base64,");
-    if (!sourcemapText) return content;
-
-    const sourcemap = JSON.parse(Buffer.from(sourcemapText, "base64").toString()) as { sources: string[]; };
-
-    sourcemap.sources = sourcemap.sources.map(source => {
-      // remap sources from `../../../servers/...` to be `servers/...` instead,
-      // so VSCode can properly map ingame files' sourcemaps to our scripts.
-      return source.startsWith(".") ?
-        source.replace(/(\.\.\/)*/, "./")
-        : source;
-    });
-
-    const newText = `${pretext}\n//# sourceMappingURL=data:application/json;base64,${Buffer.from(JSON.stringify(sourcemap)).toString("base64")}`;
-
-    return newText;
-  };
-
-  await Promise.all(
-    outputFiles.map(async file => fs.writeFile(
-      `${file.path}/${file.name}`,
-      relativeSourceMapToAbsolute(await fs.readFile(`${file.path}/${file.name}`, { encoding: 'utf8' }))
-    ))
-  ).catch(_ => console.log(_));
 }
