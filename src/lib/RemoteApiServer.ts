@@ -263,6 +263,8 @@ export function setupRemoteApi(opts: BitburnerPluginOptions) {
   remoteAPI.on('client-connected', async () => {
     if (!opts.types) return;
     const types = await remoteAPI.getDefinitionFile();
+    console.log(types);
+    
     await fs.writeFile(opts.types, types.result);
   });
 
@@ -317,4 +319,6 @@ export function setupRemoteApi(opts: BitburnerPluginOptions) {
       mirror.watch();
     }
   });
+
+  return remoteAPI;
 }

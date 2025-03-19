@@ -85,15 +85,13 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (
 
     await runExtensions(extensions.setup);
 
-    const remoteAPI = new RemoteApiServer(opts);
+    const remoteAPI = setupRemoteApi(opts);;
 
     pluginBuild.onDispose(() => {
       remoteAPI.shutDown();
     });
 
     await runExtensions(extensions.beforeConnect);
-
-    setupRemoteApi(opts);
 
     remoteAPI.listen(opts.port, () => {
       console.log('✅ RemoteAPI Server listening on port ' + opts.port);
