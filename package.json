@@ -1,6 +1,6 @@
 {
   "name": "esbuild-bitburner-plugin",
-  "version": "1.7.1",
+  "version": "1.7.2",
   "description": "plugin to push files compiled by esbuild directly to bitburner using its remote API",
   "main": "build/index.js",
   "scripts": {

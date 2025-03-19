@@ -1,6 +1,6 @@
 import { formatMessages, Plugin, transform } from 'esbuild';
 
-import { RemoteApiServer } from './lib/RemoteApiServer';
+import { RemoteApiServer, setupRemoteApi } from './lib/RemoteApiServer';
 import { RemoteFileMirror } from './lib/RemoteFileMirror';
 import { createLogBatch } from './lib/log';
 import { compileProject, findCargoDir } from './lib/rust-compiler';
@@ -92,6 +92,8 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (
     });
 
     await runExtensions(extensions.beforeConnect);
+
+    setupRemoteApi(opts);
 
     remoteAPI.listen(opts.port, () => {
       console.log('✅ RemoteAPI Server listening on port ' + opts.port);
