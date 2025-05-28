@@ -49,7 +49,9 @@ export async function upload(outdir: string, remoteAPI: RemoteApiServer) {
     files.map(async ({ filename, server }) => ({
       filename,
       server,
-      cost: (await remoteAPI.calculateRAM({ filename, server })).result,
+      cost: await remoteAPI.calculateRAM({ filename, server })
+        .then(response => response.result)
+        .catch(() => 0),
     })),
   );
 }
