@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import { createLogBatch } from './log';
+import { RemoteApiServer } from './RemoteApiServer';
 
 export async function upload(outdir: string, remoteAPI: RemoteApiServer) {
   const rawFiles = (await fs.readdir(outdir, { recursive: true, withFileTypes: true }))

@@ -6,6 +6,7 @@ import { watch as watchDirectory } from 'chokidar';
 import { connection, type request, server as WebSocketServer } from 'websocket';
 import { AddressInfo } from 'net';
 import { createLogBatch } from './log';
+import { BitburnerPluginOptions } from '../types';
 
 function isUtf8(event: any): event is { type: 'utf8' } {
   return event.type === 'utf8';

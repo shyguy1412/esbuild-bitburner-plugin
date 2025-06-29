@@ -1,18 +1,17 @@
-import { formatMessages, Plugin, transform } from 'esbuild';
+import { Plugin } from 'esbuild';
 
 import { RemoteApiServer, setupRemoteApi } from './lib/RemoteApiServer';
 import { RemoteFileMirror } from './lib/RemoteFileMirror';
 import { createLogBatch } from './lib/log';
-import { compileProject, findCargoDir } from './lib/rust-compiler';
 
 import fs from 'fs/promises';
 import { existsSync } from 'fs';
-import path from 'path';
 import { reactPlugin } from './plugins/react';
 import { rustPlugin } from './plugins/rust';
 import { fixSourceMappings } from './plugins/debugging';
 import { loggingPlugin } from './plugins/logging';
 import { upload } from './lib/upload';
+import type { BitburnerPluginOptions, PluginExtension } from './types';
 
 export type { RemoteApiServer, RemoteFileMirror };
 

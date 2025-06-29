@@ -1,6 +1,6 @@
 type RemoteApiServer = import('./lib/RemoteApiServer').RemoteApiServer;
 
-declare type BitburnerPluginOptions = Partial<{
+export declare type BitburnerPluginOptions = Partial<{
   /**
    * This is the port the RemoteAPI will connect to.
    * Enter the same port inside your game options to connect to your editor.
@@ -57,6 +57,6 @@ declare type BitburnerPluginOptions = Partial<{
   remoteDebugging: boolean;
 }>;
 
-declare type PluginExtension = NonNullable<
+export type PluginExtension = NonNullable<
   BitburnerPluginOptions['extensions']
 >[number];

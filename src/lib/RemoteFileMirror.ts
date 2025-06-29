@@ -4,6 +4,7 @@ import { existsSync as pathExists } from 'fs';
 import { FSWatcher, watch as watchDirectory } from 'chokidar';
 import { RemoteApiServer } from './RemoteApiServer';
 import { createLogBatch } from './log';
+import { BitburnerPluginOptions } from '../types';
 
 export class RemoteFileMirror {
   static remoteApi: RemoteApiServer;
