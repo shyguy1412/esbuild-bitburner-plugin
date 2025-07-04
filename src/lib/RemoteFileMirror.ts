@@ -67,7 +67,7 @@ export class RemoteFileMirror {
         .filter((f) => f.isFile());
 
     for (const file of files) {
-      const filePath = path.join(file.path, file.name).replaceAll('\\', '/');
+      const filePath = path.join(file.parentPath, file.name).replaceAll('\\', '/');
       const content = (await fs.readFile(filePath)).toString('utf8');
       const remoteUrl = filePath.replace(this.targetPath, '').replace(
         /\/?(.*?)\//,
@@ -142,7 +142,7 @@ export class RemoteFileMirror {
           await Promise.all(
             files
               .filter((f) => f.isFile())
-              .map(async ({ name, path: filePath }) => {
+              .map(async ({ name, parentPath: filePath }) => {
                 const sanitizedPath = filePath
                   .replaceAll('\\', '/')
                   .replace(new RegExp(`^(\.\/)?${mirrorPath}\/${server}`), '');

@@ -39,9 +39,9 @@ export async function fixSourceMappings(outdir: string) {
   await Promise.all(
     outputFiles.map(async (file) =>
       fs.writeFile(
-        `${file.path}/${file.name}`,
+        `${file.parentPath}/${file.name}`,
         relativeSourceMapToAbsolute(
-          await fs.readFile(`${file.path}/${file.name}`, { encoding: 'utf8' }),
+          await fs.readFile(`${file.parentPath}/${file.name}`, { encoding: 'utf8' }),
         ),
       )
     ),
