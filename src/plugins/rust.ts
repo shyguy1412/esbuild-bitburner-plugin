@@ -33,7 +33,7 @@ export function rustPlugin(pluginBuild: PluginBuild) {
   pluginBuild.onEnd(async (result) => {
     const wasmPackages = Object.entries(result.metafile?.outputs??{})
       .filter(([, { entryPoint }]) => entryPoint!.endsWith('.rs'))
-      .map(([out, { entryPoint }]) => [path.resolve(out), path.resolve(entryPoint!)]);
+      .map(([out, { entryPoint }]) => [path.resolve(out), path.resolve(entryPoint!)] as const);
 
     for (const [originalOutFile, entrypoint] of wasmPackages) {
       const newOutFile = originalOutFile.replace(

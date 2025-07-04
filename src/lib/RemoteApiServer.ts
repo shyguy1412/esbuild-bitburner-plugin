@@ -63,7 +63,7 @@ export class RemoteApiServer extends WebSocketServer {
   listen(port: number, callback: () => void) {
     if (!this.config) throw new Error('Websocket not initilized');
 
-    const httpServer = (this.config.httpServer as http.Server[])[0];
+    const httpServer = (this.config.httpServer as http.Server[])[0]!;
 
     if (httpServer.listening) {
       console.log(
@@ -90,7 +90,7 @@ export class RemoteApiServer extends WebSocketServer {
 
         const response = JSON.parse(e.utf8Data);
         if (this.#queue.has(response.id)) {
-          this.#queue.get(response.id)![+('error' in response)](response);
+          this.#queue.get(response.id)![+('error' in response)]!(response);
           this.#queue.delete(response.id);
         }
       });
@@ -271,7 +271,7 @@ export function setupRemoteApi(opts: BitburnerPluginOptions) {
     if (!opts.distribute) return;
 
     for (const path in opts.distribute) {
-      const distribute = opts.distribute[path];
+      const distribute = opts.distribute[path]!;
 
       const dispose = remoteAPI.distribute(
         path.replaceAll('\\', '/'),
@@ -292,7 +292,7 @@ export function setupRemoteApi(opts: BitburnerPluginOptions) {
         await fs.mkdir(path, { recursive: true });
       }
 
-      const servers = opts.mirror[path];
+      const servers = opts.mirror[path]!;
       const mirror = await remoteAPI.mirror(
         path.replaceAll('\\', '/'),
         servers,

@@ -79,7 +79,7 @@ export class RemoteFileMirror {
 
   writeToFilesCache(files: Record<string, string>) {
     for (const file in files) {
-      this.fileCache[file] = files[file];
+      this.fileCache[file] = files[file]!;
     }
   }
 
@@ -91,13 +91,13 @@ export class RemoteFileMirror {
 
     for (const file in files) {
       if (files[file] != this.fileCache[file]) {
-        diff.mod[file] = files[file];
+        diff.mod[file] = files[file]!;
       }
     }
 
     for (const file in this.fileCache) {
       if (files[file] == undefined) {
-        diff.rem[file] = this.fileCache[file];
+        diff.rem[file] = this.fileCache[file]!;
       }
     }
 
@@ -190,7 +190,7 @@ export class RemoteFileMirror {
       // }
 
       for (const file in filesToWrite) {
-        const content = filesToWrite[file];
+        const content = filesToWrite[file]!;
         const filePath = path.join(this.targetPath, file.replace(/:\/\//, '/'));
 
         if (!pathExists(path.dirname(filePath))) {

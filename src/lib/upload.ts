@@ -10,7 +10,7 @@ export async function upload(outdir: string, remoteAPI: RemoteApiServer) {
       path: file.parentPath.replaceAll('\\', '/').replace(/^.*?\//, ''), // rebase path
     }))
     .map((file) => ({
-      server: file.path.split('/')[0],
+      server: file.path.split('/')[0]!,
       filename: `${file.path}/${file.name}`.replace(/^.*?\//, ''),
       path: `${outdir}/${file.path}/${file.name}`,
     }));
