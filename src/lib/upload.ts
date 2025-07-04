@@ -32,9 +32,9 @@ export async function upload(outdir: string, remoteAPI: RemoteApiServer) {
     });
   }, Promise.resolve({} as Record<string, boolean>));
 
-  logger.dispatch();
-
   const files = rawFiles.filter((f) => validServers[f.server]);
+
+  const failed_files: { filename: string, server: string; }[] = [];
 
   await Promise.all(
     files.map(async ({ filename, server, path }) =>
@@ -42,17 +42,26 @@ export async function upload(outdir: string, remoteAPI: RemoteApiServer) {
         filename,
         server,
         content: (await fs.readFile(path)).toString('utf8'),
-      })
-    ),
+      }).catch(({ error }) => {
+        logger.error(`Can not push "${filename}" to "${server}": ${error}`);
+        failed_files.push({ filename, server });
+      }
+      )),
   );
 
+  logger.dispatch();
+
   return Promise.all(
-    files.map(async ({ filename, server }) => ({
-      filename,
-      server,
-      cost: await remoteAPI.calculateRAM({ filename, server })
-        .then(response => response.result)
-        .catch(() => 0),
-    })),
+    files
+      .filter(file => !failed_files.find(failed_file =>
+        (file.filename == failed_file.filename && file.server == failed_file.server)
+      ))
+      .map(async ({ filename, server }) => ({
+        filename,
+        server,
+        cost: await remoteAPI.calculateRAM({ filename, server })
+          .then(response => response.result)
+          .catch(() => 0),
+      })),
   );
 }
