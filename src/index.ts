@@ -134,13 +134,13 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (
         await fixSourceMappings(pluginBuild.initialOptions.outdir!);
       }
 
-      await runExtensions(extensions.afterBuild, remoteAPI);
+      await runExtensions(extensions.afterBuild, remoteAPI, result.metafile!);
 
       const filesWithRAM = await upload(outdir, remoteAPI);
 
       const formatOutputFiles = (files: typeof filesWithRAM) => {
         return files.map((file) =>
-          `  \x1b[33m•\x1b[0m ${file.server}://${file.filename} ${file.cost?`\x1b[32mRAM: ${file.cost}GB\x1b[0m`:''}`
+          `  \x1b[33m•\x1b[0m ${file.server}://${file.filename} ${file.cost ? `\x1b[32mRAM: ${file.cost}GB\x1b[0m` : ''}`
         );
       };
 

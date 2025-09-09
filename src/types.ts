@@ -1,3 +1,5 @@
+import { Metafile } from 'esbuild';
+
 type RemoteApiServer = import('./lib/RemoteApiServer').RemoteApiServer;
 
 export declare type BitburnerPluginOptions = Partial<{
@@ -49,7 +51,7 @@ export declare type BitburnerPluginOptions = Partial<{
     afterConnect?: (remoteAPI: RemoteApiServer) => void | Promise<void>;
 
     beforeBuild?: () => void | Promise<void>;
-    afterBuild?: (remoteAPI: RemoteApiServer) => void | Promise<void>;
+    afterBuild?: (remoteAPI: RemoteApiServer, meta: Metafile) => void | Promise<void>;
   }[];
   /**
    * Enable remote debugging. This will automatically set the right esbuild options if they arent set already.
