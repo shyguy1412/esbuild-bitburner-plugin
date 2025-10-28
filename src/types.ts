@@ -50,7 +50,7 @@ export declare type BitburnerPluginOptions = Partial<{
     beforeConnect?: () => void | Promise<void>;
     afterConnect?: (remoteAPI: RemoteApiServer) => void | Promise<void>;
 
-    beforeBuild?: () => void | Promise<void>;
+    beforeBuild?: (remoteAPI: RemoteApiServer) => void | Promise<void>;
     afterBuild?: (remoteAPI: RemoteApiServer, meta: Metafile) => void | Promise<void>;
   }[];
   /**

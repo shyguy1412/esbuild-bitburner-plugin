@@ -103,7 +103,7 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (
     let queued = false;
     let startTime: number;
 
-    pluginBuild.onStart(() => runExtensions(extensions.beforeBuild));
+    pluginBuild.onStart(() => runExtensions(extensions.beforeBuild, remoteAPI));
 
     pluginBuild.onStart(async () => {
       startTime = Date.now();
