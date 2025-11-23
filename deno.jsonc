@@ -1,4 +1,14 @@
 {
+  "name": "@shyguy1412/esbuild-bitburner-plugin",
+  "version": "0.0.0",
+  "imports": {
+    "esbuild": "npm:esbuild@0.27.0",
+    "@gnome/monads": "jsr:@gnome/monads@0.0.0",
+    "@std/fs": "jsr:@std/fs@0.224.0"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "fmt": {
     "singleQuote": true,
     "lineWidth": 90,
