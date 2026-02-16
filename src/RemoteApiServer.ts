@@ -3,175 +3,184 @@ import { err, ok, Result } from '@gnome/monads';
 export const CONTROLLER_SECRET = crypto.randomUUID();
 
 export type RemoteApiServerOptions = {
-  port?: number;
+    port?: number;
 };
 
 export class RemoteApiServer extends EventTarget {
-  #server: Deno.HttpServer<Deno.NetAddr>;
+    #server: Deno.HttpServer<Deno.NetAddr>;
 
-  interface?: RemoteApiInterface;
+    interface?: RemoteApiInterface;
 
-  constructor(opts: RemoteApiServerOptions) {
-    super();
+    constructor(opts: RemoteApiServerOptions) {
+        super();
 
-    this.#server = Deno.serve({
-      port: opts.port,
-    }, this.#httpHandler.bind(this));
-  }
-
-  #httpHandler(request: Request) {
-    if (request.headers.get('upgrade') != 'websocket') {
-      return new Response(null, { status: 426 });
+        this.#server = Deno.serve({
+            port: opts.port,
+        }, this.#httpHandler.bind(this));
     }
 
-    if (this.interface) {
-      return new Response(null, { status: 403 });
+    async #httpHandler(request: Request) {
+        if (request.headers.get('upgrade') != 'websocket') {
+            return new Response(null, { status: 426 });
+        }
+
+        if (this.interface) {
+            return new Response(null, { status: 403 });
+        }
+
+        const { socket, response } = Deno.upgradeWebSocket(request);
+
+        this.interface = new RemoteApiInterface(socket);
+        socket.addEventListener('close', () => this.interface = undefined);
+
+        socket.addEventListener(
+            'open',
+            () => this.dispatchEvent(new Event('client-connected')),
+        );
+
+        return response;
     }
 
-    const { socket, response } = Deno.upgradeWebSocket(request);
+    connect(): Promise<RemoteApiInterface> {
+        if (this.interface) {
+            return Promise.resolve(this.interface);
+        }
 
-    this.interface = new RemoteApiInterface(socket);
-    socket.addEventListener('close', () => this.interface = undefined);
-
-    this.dispatchEvent(new Event('client-connected'));
-
-    return response;
-  }
-
-  connect(): Promise<RemoteApiInterface> {
-    if (this.interface) {
-      return Promise.resolve(this.interface);
+        return new Promise((r) =>
+            this.addEventListener('client-connected', () => r(this.interface!), {
+                once: true,
+            })
+        );
     }
 
-    return new Promise((r) =>
-      this.addEventListener('client-connected', () => r(this.interface!), { once: true })
-    );
-  }
-
-  shutdown() {
-    return this.#server.shutdown();
-  }
+    shutdown() {
+        return this.#server.shutdown();
+    }
 }
 
 class RemoteApiInterface {
-  #socket: WebSocket;
+    #socket: WebSocket;
 
-  constructor(socket: WebSocket) {
-    this.#socket = socket;
-  }
-
-  write(obj: Record<string, any>): Promise<Result<any, string>> {
-    if (!this.#socket) {
-      return Promise.resolve(err('No open connection'));
+    constructor(socket: WebSocket) {
+        this.#socket = socket;
     }
 
-    const id = crypto.randomUUID();
-    const message = JSON.stringify({
-      jsonrpc: '2.0',
-      id,
-      ...obj,
-    });
+    write(obj: Record<string, any>): Promise<Result<any, string>> {
+        if (!this.#socket) {
+            return Promise.resolve(err('No open connection'));
+        }
 
-    this.#socket.send(message);
+        const id = crypto.randomUUID();
+        const message = JSON.stringify({
+            jsonrpc: '2.0',
+            id,
+            ...obj,
+        });
 
-    return new Promise((resolve) => {
-      const abortController = new AbortController();
+        this.#socket.send(message);
 
-      const timeout = setTimeout(() => {
-        abortController.abort();
-        resolve(err('message timed out: ' + id));
-      });
+        return new Promise((resolve) => {
+            const abortController = new AbortController();
 
-      abortController.signal.addEventListener('abort', () => clearTimeout(timeout));
+            const timeout = setTimeout(() => {
+                abortController.abort();
+                resolve(err('message timed out: ' + id));
+            }, 1000);
 
-      this.#socket?.addEventListener('message', (ev) => {
-        const response = ev.data;
-        if (response.id != id) return;
+            abortController.signal.addEventListener('abort', () => clearTimeout(timeout));
 
-        if ('error' in response) resolve(err(response));
-        else resolve(ok(response));
-      }, { signal: abortController.signal });
-    });
-  }
+            this.#socket?.addEventListener('message', (ev) => {
+                const response = JSON.parse(ev.data);
+                if (response.id != id) return;
 
-  getDefinitionFile(): Promise<Result<any, string>> {
-    return this.write({
-      method: 'getDefinitionFile',
-    });
-  }
+                if ('error' in response) resolve(err(response));
+                else resolve(ok(response));
+            }, { signal: abortController.signal });
+        });
+    }
 
-  pushFile(
-    { filename, content, server }: { filename: string; content: string; server: string },
-  ): Promise<Result<any, string>> {
-    return this.write({
-      method: 'pushFile',
-      params: {
-        filename,
-        content,
-        server,
-      },
-    });
-  }
+    getDefinitionFile(): Promise<Result<any, string>> {
+        return this.write({
+            method: 'getDefinitionFile',
+        });
+    }
 
-  getFile(
-    { filename, server }: { filename: string; server: string },
-  ): Promise<Result<any, string>> {
-    return this.write({
-      method: 'getFile',
-      params: {
-        filename,
-        server,
-      },
-    });
-  }
+    pushFile(
+        { filename, content, server }: {
+            filename: string;
+            content: string;
+            server: string;
+        },
+    ): Promise<Result<any, string>> {
+        return this.write({
+            method: 'pushFile',
+            params: {
+                filename,
+                content,
+                server,
+            },
+        });
+    }
 
-  getFileNames(server: string): Promise<Result<any, string>> {
-    return this.write({
-      method: 'getFileNames',
-      params: {
-        server,
-      },
-    });
-  }
+    getFile(
+        { filename, server }: { filename: string; server: string },
+    ): Promise<Result<any, string>> {
+        return this.write({
+            method: 'getFile',
+            params: {
+                filename,
+                server,
+            },
+        });
+    }
 
-  getAllFiles(server: string): Promise<Result<any, string>> {
-    return this.write({
-      method: 'getAllFiles',
-      params: {
-        server,
-      },
-    });
-  }
+    getFileNames(server: string): Promise<Result<any, string>> {
+        return this.write({
+            method: 'getFileNames',
+            params: {
+                server,
+            },
+        });
+    }
 
-  deleteFile(
-    { filename, server }: { filename: string; server: string },
-  ): Promise<Result<any, string>> {
-    return this.write({
-      method: 'deleteFile',
-      params: {
-        filename,
-        server,
-      },
-    });
-  }
+    getAllFiles(server: string): Promise<Result<any, string>> {
+        return this.write({
+            method: 'getAllFiles',
+            params: {
+                server,
+            },
+        });
+    }
 
-  calculateRAM(
-    { filename, server }: { filename: string; server: string },
-  ): Promise<Result<any, string>> {
-    return this.write({
-      method: 'calculateRam',
-      params: {
-        filename,
-        server,
-      },
-    });
-  }
+    deleteFile(
+        { filename, server }: { filename: string; server: string },
+    ): Promise<Result<any, string>> {
+        return this.write({
+            method: 'deleteFile',
+            params: {
+                filename,
+                server,
+            },
+        });
+    }
 
-  getAllServers(): Promise<Result<any, string>> {
-    return this.write({
-      method: 'getAllServers',
-    });
-  }
+    calculateRAM(
+        { filename, server }: { filename: string; server: string },
+    ): Promise<Result<any, string>> {
+        return this.write({
+            method: 'calculateRam',
+            params: {
+                filename,
+                server,
+            },
+        });
+    }
+
+    getAllServers(): Promise<Result<any, string>> {
+        return this.write({
+            method: 'getAllServers',
+        });
+    }
 }
 
 export type { RemoteApiInterface };

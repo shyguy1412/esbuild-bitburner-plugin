@@ -10,24 +10,24 @@ If you are looking for a ready to go template for your workspace, have a look at
 
 ```js
 const createContext = async () =>
-  await context({
-    entryPoints: [
-      'servers/**/*.js',
-      'servers/**/*.jsx',
-      'servers/**/*.ts',
-      'servers/**/*.tsx',
-    ],
-    outbase: './servers',
-    outdir: './build',
-    plugins: [BitburnerPlugin({
-      port: 12525,
-      types: 'NetscriptDefinitions.d.ts',
-    })],
-    bundle: true,
-    format: 'esm',
-    platform: 'browser',
-    logLevel: 'info',
-  });
+    await context({
+        entryPoints: [
+            'servers/**/*.js',
+            'servers/**/*.jsx',
+            'servers/**/*.ts',
+            'servers/**/*.tsx',
+        ],
+        outbase: './servers',
+        outdir: './build',
+        plugins: [BitburnerPlugin({
+            port: 12525,
+            types: 'NetscriptDefinitions.d.ts',
+        })],
+        bundle: true,
+        format: 'esm',
+        platform: 'browser',
+        logLevel: 'info',
+    });
 
 let ctx = await createContext();
 ctx.watch();
@@ -39,12 +39,17 @@ This plugin allows you to use the ingame instances of `React` and `ReactDOM` sim
 importing them as ESModule as you usually would.
 
 ```jsx
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 
-export function MyComponent(){
-  const [count, setCount] = useState(0);
+export function MyComponent() {
+    const [count, setCount] = useState(0);
 
-  return <div>Count {count} <button onClick={() => setCount(count + 1)}>Add to count</button></div>;
+    return (
+        <div>
+            Count {count}{' '}
+            <button onClick={() => setCount(count + 1)}>Add to count</button>
+        </div>
+    );
 }
 ```
 
@@ -95,27 +100,27 @@ this:
 
 ```js
 const createContext = async () =>
-  await context({
-    entryPoints: [
-      'servers/**/*.js',
-      'servers/**/*.jsx',
-      'servers/**/*.ts',
-      'servers/**/*.tsx',
-    ],
-    outbase: './servers',
-    outdir: './build',
-    plugins: [BitburnerPlugin({
-      port: 12525,
-      types: 'NetscriptDefinitions.d.ts',
-      mirror: {
-        'local/path': ['home', 'and/or other servers'],
-      },
-    })],
-    bundle: true,
-    format: 'esm',
-    platform: 'browser',
-    logLevel: 'info',
-  });
+    await context({
+        entryPoints: [
+            'servers/**/*.js',
+            'servers/**/*.jsx',
+            'servers/**/*.ts',
+            'servers/**/*.tsx',
+        ],
+        outbase: './servers',
+        outdir: './build',
+        plugins: [BitburnerPlugin({
+            port: 12525,
+            types: 'NetscriptDefinitions.d.ts',
+            mirror: {
+                'local/path': ['home', 'and/or other servers'],
+            },
+        })],
+        bundle: true,
+        format: 'esm',
+        platform: 'browser',
+        logLevel: 'info',
+    });
 
 let ctx = await createContext();
 ctx.watch();
@@ -133,27 +138,27 @@ this
 
 ```js
 const createContext = async () =>
-  await context({
-    entryPoints: [
-      'servers/**/*.js',
-      'servers/**/*.jsx',
-      'servers/**/*.ts',
-      'servers/**/*.tsx',
-    ],
-    outbase: './servers',
-    outdir: './build',
-    plugins: [BitburnerPlugin({
-      port: 12525,
-      types: 'NetscriptDefinitions.d.ts',
-      distribute: {
-        'build/home/dist': ['server-1', 'server-2', 'server-3'],
-      },
-    })],
-    bundle: true,
-    format: 'esm',
-    platform: 'browser',
-    logLevel: 'info',
-  });
+    await context({
+        entryPoints: [
+            'servers/**/*.js',
+            'servers/**/*.jsx',
+            'servers/**/*.ts',
+            'servers/**/*.tsx',
+        ],
+        outbase: './servers',
+        outdir: './build',
+        plugins: [BitburnerPlugin({
+            port: 12525,
+            types: 'NetscriptDefinitions.d.ts',
+            distribute: {
+                'build/home/dist': ['server-1', 'server-2', 'server-3'],
+            },
+        })],
+        bundle: true,
+        format: 'esm',
+        platform: 'browser',
+        logLevel: 'info',
+    });
 
 let ctx = await createContext();
 ctx.watch();
@@ -174,47 +179,47 @@ import { BitburnerPlugin } from 'esbuild-bitburner-plugin';
 
 /** @type import('esbuild-bitburner-plugin').PluginExtension*/
 const customExtension = {
-  setup() {
-    console.log('setup');
-  }, //Run once on plugin startup
+    setup() {
+        console.log('setup');
+    }, //Run once on plugin startup
 
-  beforeConnect() {
-    console.log('beforeConnect');
-  }, //Run once before the game connects
-  afterConnect(remoteAPI) {
-    console.log('afterConnect');
-  }, //Run every time after the game (re)connects
+    beforeConnect() {
+        console.log('beforeConnect');
+    }, //Run once before the game connects
+    afterConnect(remoteAPI) {
+        console.log('afterConnect');
+    }, //Run every time after the game (re)connects
 
-  beforeBuild() {
-    console.log('beforeBuild');
-  }, //Run before every build process
-  afterBuild(remoteAPI) {
-    console.log('afterBuild');
-  }, //Run after build, before results are uploaded into the game
+    beforeBuild() {
+        console.log('beforeBuild');
+    }, //Run before every build process
+    afterBuild(remoteAPI) {
+        console.log('afterBuild');
+    }, //Run after build, before results are uploaded into the game
 };
 
 const createContext = async () =>
-  await context({
-    entryPoints: [
-      'servers/**/*.js',
-      'servers/**/*.jsx',
-      'servers/**/*.ts',
-      'servers/**/*.tsx',
-    ],
-    outbase: './servers',
-    outdir: './build',
-    plugins: [
-      BitburnerPlugin({
-        port: 12525,
-        types: 'NetscriptDefinitions.d.ts',
-        extensions: [customExtension],
-      }),
-    ],
-    bundle: true,
-    format: 'esm',
-    platform: 'browser',
-    logLevel: 'info',
-  });
+    await context({
+        entryPoints: [
+            'servers/**/*.js',
+            'servers/**/*.jsx',
+            'servers/**/*.ts',
+            'servers/**/*.tsx',
+        ],
+        outbase: './servers',
+        outdir: './build',
+        plugins: [
+            BitburnerPlugin({
+                port: 12525,
+                types: 'NetscriptDefinitions.d.ts',
+                extensions: [customExtension],
+            }),
+        ],
+        bundle: true,
+        format: 'esm',
+        platform: 'browser',
+        logLevel: 'info',
+    });
 
 const ctx = await createContext();
 ctx.watch();
@@ -231,27 +236,27 @@ in a Chrome/Chromium browser.
 
 ```js
 const createContext = async () =>
-  await context({
-    entryPoints: [
-      'servers/**/*.js',
-      'servers/**/*.jsx',
-      'servers/**/*.ts',
-      'servers/**/*.tsx',
-    ],
-    outbase: './servers',
-    outdir: './build',
-    plugins: [
-      BitburnerPlugin({
-        port: 12525,
-        types: 'NetscriptDefinitions.d.ts',
-        remoteDebugging: true,
-      }),
-    ],
-    bundle: true,
-    format: 'esm',
-    platform: 'browser',
-    logLevel: 'info',
-  });
+    await context({
+        entryPoints: [
+            'servers/**/*.js',
+            'servers/**/*.jsx',
+            'servers/**/*.ts',
+            'servers/**/*.tsx',
+        ],
+        outbase: './servers',
+        outdir: './build',
+        plugins: [
+            BitburnerPlugin({
+                port: 12525,
+                types: 'NetscriptDefinitions.d.ts',
+                remoteDebugging: true,
+            }),
+        ],
+        bundle: true,
+        format: 'esm',
+        platform: 'browser',
+        logLevel: 'info',
+    });
 
 const ctx = await createContext();
 ctx.watch();
@@ -261,23 +266,23 @@ ctx.watch();
 
 ```json
 {
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "type": "chrome",
-      "request": "attach",
-      "name": "Attach to BitBurner (Steam)",
-      "port": 9222
-    },
-    {
-      "type": "chrome",
-      "request": "attach",
-      "name": "Attach to BitBurner (Web)",
-      "port": 9222,
-      "urlFilter": "https://bitburner-official.github.io/*",
-      "webRoot": "${workspaceFolder}"
-    }
-  ]
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "chrome",
+            "request": "attach",
+            "name": "Attach to BitBurner (Steam)",
+            "port": 9222
+        },
+        {
+            "type": "chrome",
+            "request": "attach",
+            "name": "Attach to BitBurner (Web)",
+            "port": 9222,
+            "urlFilter": "https://bitburner-official.github.io/*",
+            "webRoot": "${workspaceFolder}"
+        }
+    ]
 }
 ```
 
