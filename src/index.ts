@@ -167,13 +167,14 @@ async function setup(opts: BitburnerPluginOptions, pluginBuild: PluginBuild) {
         remoteAPI.shutdown();
     });
 
-    remoteAPI.addEventListener('client-connected', () => {
-        if (!remoteAPI.interface) {
-            console.error('remote api disconnected; after-connect hook');
-            return;
+    remoteAPI.addEventListener('client-connected', async () => {
+        const nsdef = await remoteAPI.interface!.getDefinitionFile();
+
+        if(nsdef.isError){
+            return
         }
 
-        runExtensions(extensions.afterConnect, remoteAPI.interface);
+        Deno.writeTextFile(opts.types ?? './NetscriptDefinitions.d.ts', nsdef.unwrap().result);
     });
 
     let queued = false;
