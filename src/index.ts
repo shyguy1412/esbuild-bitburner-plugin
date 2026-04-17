@@ -265,7 +265,7 @@ async function upload(outdir: string, remoteAPI: RemoteApiInterface, server = 'h
     const files = (await Array.fromAsync(walk(outdir, { includeSymlinks: false })))
         .filter((file) => file.isFile)
         .map((file) => ({
-            filename: `./${file.path}`.replace(outdir + '/', '').replaceAll('\\', '/'),
+            filename: `./${file.path}`.replaceAll('\\', '/').replace(outdir + '/', ''),
             path: `${file.path}`,
         }));
 

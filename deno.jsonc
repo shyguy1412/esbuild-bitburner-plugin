@@ -1,6 +1,6 @@
 {
     "name": "@shyguy1412/esbuild-bitburner-plugin",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "imports": {
         "esbuild": "npm:esbuild@0.27.3",
         "@gnome/monads": "jsr:@gnome/monads@0.0.0",
