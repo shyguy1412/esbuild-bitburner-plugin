@@ -170,11 +170,14 @@ async function setup(opts: BitburnerPluginOptions, pluginBuild: PluginBuild) {
     remoteAPI.addEventListener('client-connected', async () => {
         const nsdef = await remoteAPI.interface!.getDefinitionFile();
 
-        if(nsdef.isError){
-            return
+        if (nsdef.isError) {
+            return;
         }
 
-        Deno.writeTextFile(opts.types ?? './NetscriptDefinitions.d.ts', nsdef.unwrap().result);
+        Deno.writeTextFile(
+            opts.types ?? './NetscriptDefinitions.d.ts',
+            nsdef.unwrap().result,
+        );
     });
 
     let queued = false;
@@ -262,7 +265,7 @@ async function upload(outdir: string, remoteAPI: RemoteApiInterface, server = 'h
     const files = (await Array.fromAsync(walk(outdir, { includeSymlinks: false })))
         .filter((file) => file.isFile)
         .map((file) => ({
-            filename: `./${file.path}`.replace(outdir + '/', ''),
+            filename: `./${file.path}`.replace(outdir + '/', '').replaceAll('\\', '/'),
             path: `${file.path}`,
         }));
 
@@ -278,7 +281,7 @@ async function upload(outdir: string, remoteAPI: RemoteApiInterface, server = 'h
         });
 
         result.mapError((error) => {
-            errors.push(`Can not push "${file.filename}" to "${server}": ${error}`);
+            errors.push(`Can not push "${file.filename}" to "${server}": ${JSON.stringify(error)}`);
             failed_files.push(file);
         });
     }
