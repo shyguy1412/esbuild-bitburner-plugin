@@ -1,9 +1,4 @@
-import {
-    formatMessagesSync,
-    type Metafile,
-    type Plugin,
-    type PluginBuild,
-} from 'esbuild';
+import type { Metafile, Plugin, PluginBuild } from 'esbuild';
 
 import { type RemoteApiInterface, RemoteApiServer } from './RemoteApiServer.ts';
 
@@ -82,6 +77,9 @@ export declare type BitburnerPluginOptions = {
     remoteDebugging?: boolean;
 };
 
+//gets assigned in setup to prevent a non-type dependency from esbuild
+let formatMessagesSync: PluginBuild['esbuild']['formatMessagesSync'];
+
 export type PluginExtension = NonNullable<
     BitburnerPluginOptions['extensions']
 >[number];
@@ -126,6 +124,8 @@ export const BitburnerPlugin: (opts: BitburnerPluginOptions) => Plugin = (
 });
 
 async function setup(opts: BitburnerPluginOptions, pluginBuild: PluginBuild) {
+    formatMessagesSync = pluginBuild.esbuild.formatMessagesSync;
+
     const { outdir } = pluginBuild.initialOptions;
 
     if (!opts.port) {
