@@ -1,4 +1,4 @@
-import { RemoteApiInterface } from './RemoteApiServer.ts';
+import type { RemoteApiInterface } from './RemoteApiServer.ts';
 
 export type RemoteApiMirrorOptions = {
     targetDirectory: string;
@@ -36,10 +36,11 @@ async function resolveServersOption(
     opt: RemoteApiMirrorOptions['servers'],
     remoteApi: RemoteApiInterface,
 ) {
-    if (typeof opt == 'object') return opt;
+    if (typeof opt == 'object') {
+        return opt;
+    }
 
-    const servers: any[] = (await remoteApi.getAllServers())
-        .map((r) => r.result)
+    const servers = (await remoteApi.getAllServers())
         .unwrapOr([]);
 
     return servers.filter((s) =>

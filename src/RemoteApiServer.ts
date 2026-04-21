@@ -1,4 +1,6 @@
-import { err, ok, Result } from '@gnome/monads';
+// import { err, ok, Result } from '@gnome/monads';
+
+import { Result } from 'result';
 
 export const CONTROLLER_SECRET = crypto.randomUUID();
 
@@ -19,7 +21,7 @@ export class RemoteApiServer extends EventTarget {
         }, this.#httpHandler.bind(this));
     }
 
-    async #httpHandler(request: Request) {
+    #httpHandler(request: Request) {
         if (request.headers.get('upgrade') != 'websocket') {
             return new Response(null, { status: 426 });
         }
@@ -30,7 +32,7 @@ export class RemoteApiServer extends EventTarget {
 
         const { socket, response } = Deno.upgradeWebSocket(request);
 
-        this.interface = new RemoteApiInterface(socket);
+        this.interface = createInterface(socket);
         socket.addEventListener('close', () => this.interface = undefined);
 
         socket.addEventListener(
@@ -58,129 +60,134 @@ export class RemoteApiServer extends EventTarget {
     }
 }
 
-class RemoteApiInterface {
-    #socket: WebSocket;
-
-    constructor(socket: WebSocket) {
-        this.#socket = socket;
+export function write<M extends keyof RFAMethods>(
+    socket: WebSocket,
+    method: M,
+    params: RFARequest<M>,
+): Promise<Result<RFAResponse<M>['result'], RFAResponse<M>['error']>> {
+    if (!socket) {
+        return Promise.resolve(Result.Err('No open connection'));
     }
 
-    write(obj: Record<string, any>): Promise<Result<any, string>> {
-        if (!this.#socket) {
-            return Promise.resolve(err('No open connection'));
-        }
+    const id = crypto.randomUUID();
+    const message = JSON.stringify({
+        jsonrpc: '2.0',
+        id,
+        method,
+        params,
+    });
 
-        const id = crypto.randomUUID();
-        const message = JSON.stringify({
-            jsonrpc: '2.0',
-            id,
-            ...obj,
-        });
+    socket.send(message);
 
-        this.#socket.send(message);
+    return new Promise((resolve) => {
+        const abortController = new AbortController();
 
-        return new Promise((resolve) => {
-            const abortController = new AbortController();
+        const timeout = setTimeout(() => {
+            abortController.abort();
+            resolve(Result.Err('message timed out: ' + id));
+        }, 1000);
 
-            const timeout = setTimeout(() => {
-                abortController.abort();
-                resolve(err('message timed out: ' + id));
-            }, 1000);
+        socket.addEventListener('message', (ev) => {
+            const response = JSON.parse(ev.data);
+            if (response.id != id) {
+                return;
+            }
 
-            abortController.signal.addEventListener('abort', () => clearTimeout(timeout));
+            clearTimeout(timeout);
 
-            this.#socket?.addEventListener('message', (ev) => {
-                const response = JSON.parse(ev.data);
-                if (response.id != id) return;
-
-                if ('error' in response) resolve(err(response));
-                else resolve(ok(response));
-            }, { signal: abortController.signal });
-        });
-    }
-
-    getDefinitionFile(): Promise<Result<any, string>> {
-        return this.write({
-            method: 'getDefinitionFile',
-        });
-    }
-
-    pushFile(
-        { filename, content, server }: {
-            filename: string;
-            content: string;
-            server: string;
-        },
-    ): Promise<Result<any, string>> {
-        return this.write({
-            method: 'pushFile',
-            params: {
-                filename,
-                content,
-                server,
-            },
-        });
-    }
-
-    getFile(
-        { filename, server }: { filename: string; server: string },
-    ): Promise<Result<any, string>> {
-        return this.write({
-            method: 'getFile',
-            params: {
-                filename,
-                server,
-            },
-        });
-    }
-
-    getFileNames(server: string): Promise<Result<any, string>> {
-        return this.write({
-            method: 'getFileNames',
-            params: {
-                server,
-            },
-        });
-    }
-
-    getAllFiles(server: string): Promise<Result<any, string>> {
-        return this.write({
-            method: 'getAllFiles',
-            params: {
-                server,
-            },
-        });
-    }
-
-    deleteFile(
-        { filename, server }: { filename: string; server: string },
-    ): Promise<Result<any, string>> {
-        return this.write({
-            method: 'deleteFile',
-            params: {
-                filename,
-                server,
-            },
-        });
-    }
-
-    calculateRAM(
-        { filename, server }: { filename: string; server: string },
-    ): Promise<Result<any, string>> {
-        return this.write({
-            method: 'calculateRam',
-            params: {
-                filename,
-                server,
-            },
-        });
-    }
-
-    getAllServers(): Promise<Result<any, string>> {
-        return this.write({
-            method: 'getAllServers',
-        });
-    }
+            if ('error' in response) {
+                resolve(Result.Err(response['error']));
+            } else {
+                resolve(Result.Ok(response['result']));
+            }
+        }, { signal: abortController.signal });
+    });
 }
+
+function createInterface(socket: WebSocket) {
+    return new Proxy({} as RemoteApiInterface, {
+        get(_, p: keyof RFAMethods | 'then') {
+            if (p == 'then') { //prevent promise shenanigans
+                return undefined;
+            }
+
+            return (params: RFAMethods[typeof p][0]) => write(socket, p, params);
+        },
+    });
+}
+
+type RemoteApiInterface = {
+    [M in keyof RFAMethods]: (
+        ...[params]: RFAMethods[M][0] extends never ? [] : [RFAMethods[M][0]]
+    ) => Promise<Result<RFAResponse<M>['result'], RFAResponse<M>['error']>>;
+};
+
+export type RFAMethods = {
+    getDefinitionFile: [GetDefinitionFileRequest, GetDefinitionFileResponse];
+    pushFile: [PushFileRequest, PushFileResponse];
+    getFile: [GetFileRequest, GetFileResponse];
+    getFileNames: [GetFileNamesRequest, GetFileNamesResponse];
+    getAllFiles: [GetAllFilesRequest, GetAllFilesResponse];
+    deleteFile: [DeleteFileRequest, DeleteFileResponse];
+    calculateRam: [CalculateRamRequest, CalculateRamResponse];
+    getAllServers: [GetAllServersRequest, GetAllServersResponse];
+    getSaveFile: [GetSaveFileRequest, GetSaveFileResponse];
+    getFileMetaData: [GetFileMetaDataRequest, GetFileMetaDataResponse];
+    getAllFileMetaData: [GetAllFileMetaDataRequest, GetAllFileMetaDataResponse];
+};
+
+export type RFARequest<M extends keyof RFAMethods> = RFAMethods[M][0];
+
+export type RFAResponse<M extends keyof RFAMethods> = M extends keyof RFAMethods ? {
+        jsonrpc: '2.0';
+        id: number;
+        result: RFAMethods[M][1];
+        error: unknown;
+    } :
+    never;
+
+type FileParameter = { filename: string; server: string };
+type ServerParameter = { server: string };
+
+export type PushFileRequest = { filename: string; content: string; server: string };
+export type CalculateRamRequest = FileParameter;
+
+export type GetDefinitionFileRequest = never;
+export type GetAllServersRequest = never;
+export type GetSaveFileRequest = never;
+
+export type GetFileRequest = FileParameter;
+export type GetAllFilesRequest = ServerParameter;
+export type GetFileNamesRequest = ServerParameter;
+export type GetFileMetaDataRequest = FileParameter;
+export type GetAllFileMetaDataRequest = ServerParameter;
+export type DeleteFileRequest = FileParameter;
+
+export type PushFileResponse = 'OK';
+export type CalculateRamResponse = number;
+
+export type GetDefinitionFileResponse = string;
+export type GetAllServersResponse = {
+    hostname: string;
+    hasAdminRights: boolean;
+    purchasedByPlayer: boolean;
+}[];
+export type GetSaveFileResponse = {
+    identifier: string;
+    binary: boolean;
+    save: string;
+};
+
+export type GetFileResponse = string;
+export type GetAllFilesResponse = { filename: string; content: string }[];
+export type GetFileNamesResponse = string[];
+export type GetFileMetaDataResponse = {
+    filename: string;
+    atime: string;
+    btime: string;
+    mtime: string;
+};
+export type GetAllFileMetaDataResponse = GetFileMetaDataResponse[];
+export type DeleteFileResponse = 'OK';
 
 export type { RemoteApiInterface };

@@ -1,13 +1,13 @@
 import {
-    formatMessages,
     formatMessagesSync,
     type Metafile,
     type Plugin,
-    PluginBuild,
+    type PluginBuild,
 } from 'esbuild';
-import { type RemoteApiInterface, RemoteApiServer } from './RemoteApiServer.ts';
-import { walk } from '@std/fs/walk';
 
+import { type RemoteApiInterface, RemoteApiServer } from './RemoteApiServer.ts';
+
+import { walk } from '@std/fs/walk';
 export declare type BitburnerPluginOptions = {
     /**
      * This is the port the RemoteAPI will connect to.
@@ -43,7 +43,7 @@ export declare type BitburnerPluginOptions = {
      * All the listed servers will be mirrored into that directory.
      */
     mirror?: {
-        [path: string]: string[] | 'all' | 'own' | 'other';
+        [path: string]: string[] | 'all' | 'own' | 'npc';
     };
 
     /**
@@ -51,7 +51,7 @@ export declare type BitburnerPluginOptions = {
      * All files in that directory will be uploaded to all of the listed servers.
      */
     distribute?: {
-        [path: string]: string[] | 'all' | 'own' | 'other';
+        [path: string]: string[] | 'all' | 'own' | 'npc';
     };
 
     /**
@@ -170,13 +170,13 @@ async function setup(opts: BitburnerPluginOptions, pluginBuild: PluginBuild) {
     remoteAPI.addEventListener('client-connected', async () => {
         const nsdef = await remoteAPI.interface!.getDefinitionFile();
 
-        if (nsdef.isError) {
+        if (nsdef.isError()) {
             return;
         }
 
         Deno.writeTextFile(
             opts.types ?? './NetscriptDefinitions.d.ts',
-            nsdef.unwrap().result,
+            nsdef.value,
         );
     });
 
@@ -206,8 +206,12 @@ async function setup(opts: BitburnerPluginOptions, pluginBuild: PluginBuild) {
     );
 
     pluginBuild.onEnd(async (result) => {
-        if (result.errors.length != 0) return;
-        if (queued) return;
+        if (result.errors.length != 0) {
+            return;
+        }
+        if (queued) {
+            return;
+        }
 
         const endTime = Date.now();
 
@@ -280,18 +284,25 @@ async function upload(outdir: string, remoteAPI: RemoteApiInterface, server = 'h
             content: await Deno.readTextFile(file.path),
         });
 
-        result.mapError((error) => {
-            errors.push(`Can not push "${file.filename}" to "${server}": ${JSON.stringify(error)}`);
-            failed_files.push(file);
-        });
+        if (result.isOk()) {
+            continue;
+        }
+
+        errors.push(
+            `Can not push "${file.filename}" to "${server}": ${
+                JSON.stringify(result.error)
+            }`,
+        );
     }
 
-    const formattedErrors = await formatMessages(errors.map((e) => ({ text: e })), {
+    const formattedErrors = formatMessagesSync(errors.map((e) => ({ text: e })), {
         kind: 'error',
         color: true,
     });
 
-    for (const err of formattedErrors) console.error(err);
+    for (const err of formattedErrors) {
+        console.error(err);
+    }
 
     return Promise.all(
         files
@@ -299,9 +310,7 @@ async function upload(outdir: string, remoteAPI: RemoteApiInterface, server = 'h
             .map(async ({ filename }) => ({
                 filename,
                 server,
-                cost: (await remoteAPI.calculateRAM({ filename, server }))
-                    .map((r) => r.result)
-                    .unwrapOr(0),
+                cost: (await remoteAPI.calculateRam({ filename, server })).unwrapOr(0),
             })),
     );
 }

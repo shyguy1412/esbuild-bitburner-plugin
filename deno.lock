@@ -1,16 +1,12 @@
 {
   "version": "5",
   "specifiers": {
-    "jsr:@gnome/monads@0.0.0": "0.0.0",
     "jsr:@std/fs@1.0.22": "1.0.22",
     "jsr:@std/internal@^1.0.12": "1.0.12",
     "jsr:@std/path@^1.1.4": "1.1.4",
     "npm:esbuild@0.27.3": "0.27.3"
   },
   "jsr": {
-    "@gnome/monads@0.0.0": {
-      "integrity": "b9586903de47231a07f360c863e10e25e6a4cf589369a627df99a719b0b251b7"
-    },
     "@std/fs@1.0.22": {
       "integrity": "de0f277a58a867147a8a01bc1b181d0dfa80bfddba8c9cf2bacd6747bcec9308",
       "dependencies": [
@@ -231,11 +227,11 @@
     "https://deno.land/x/denoflate@1.2.1/mod.ts": "f5628e44b80b3d80ed525afa2ba0f12408e3849db817d47a883b801f9ce69dd6",
     "https://deno.land/x/denoflate@1.2.1/pkg/denoflate.js": "b9f9ad9457d3f12f28b1fb35c555f57443427f74decb403113d67364e4f2caf4",
     "https://deno.land/x/denoflate@1.2.1/pkg/denoflate_bg.wasm.js": "d581956245407a2115a3d7e8d85a9641c032940a8e810acbd59ca86afd34d44d",
-    "https://deno.land/x/esbuild@v0.27.0/mod.js": "497e8cf52815e7c9bd5a8ac5cec60dc3bdbea86301bae44bb89b7ca83532e3d0"
+    "https://deno.land/x/esbuild@v0.27.0/mod.js": "497e8cf52815e7c9bd5a8ac5cec60dc3bdbea86301bae44bb89b7ca83532e3d0",
+    "https://raw.githubusercontent.com/shyguy1412/shylib/refs/heads/main/types/Result.ts": "fb21faeef0afa6e0cb61e876f5c7cf85b464eb206e8805cc932656f0ebdb6d12"
   },
   "workspace": {
     "dependencies": [
-      "jsr:@gnome/monads@0.0.0",
       "jsr:@std/fs@1.0.22",
       "npm:esbuild@0.27.3"
     ]

@@ -3,18 +3,38 @@
     "version": "0.0.3",
     "imports": {
         "esbuild": "npm:esbuild@0.27.3",
-        "@gnome/monads": "jsr:@gnome/monads@0.0.0",
+        "result": "https://raw.githubusercontent.com/shyguy1412/shylib/refs/heads/main/types/Result.ts",
         "@std/fs": "jsr:@std/fs@1.0.22"
     },
     "exports": {
         ".": "./src/index.ts"
     },
     "fmt": {
-        "singleQuote": true,
-        "lineWidth": 90,
         "indentWidth": 4,
+        "lineWidth": 90,
+        "useTabs": false,
+
         "semiColons": true,
-        "proseWrap": "preserve"
+        "singleQuote": true,
+        "quoteProps": "asNeeded",
+        "trailingCommas": "onlyMultiLine",
+
+        "newLineKind": "lf",
+        "proseWrap": "preserve",
+
+        "useBraces": "always",
+        "bracePosition": "sameLine",
+        "operatorPosition": "sameLine",
+        "singleBodyPosition": "nextLine",
+        "nextControlFlowPosition": "sameLine",
+
+        "spaceAround": false,
+        "spaceSurroundingProperties": true,
+
+        "typeLiteral.separatorKind": "semiColon",
+
+        "jsx.bracketPosition": "nextLine",
+        "jsx.multiLineParens": "never"
     },
     "compilerOptions": {
         "lib": [
